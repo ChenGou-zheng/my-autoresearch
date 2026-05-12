@@ -1,0 +1,17 @@
+meteorite
+.venv
+
+# Generated/training outputs
+data/
+generated_pictures/
+training-runs/
+evaluation_results/
+
+# StyleGAN2-ADA cloned repo
+stylegan2-ada/
+
+# Logs and compiled extensions
+training.log
+*.so
+__pycache__/
+*.pyc

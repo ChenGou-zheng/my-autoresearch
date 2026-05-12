@@ -1,0 +1,14 @@
+{
+  "active": false,
+  "last_session_id": null,
+  "last_updated": "2026-05-12T00:00:00+08:00",
+  "current_branch": "main",
+  "best_commit": null,
+  "best_official_fid": null,
+  "best_proxy_fid50k": null,
+  "best_checkpoint": null,
+  "best_generation_settings": null,
+  "last_status": "not_started",
+  "consecutive_crashes": 0,
+  "selected_next_task": "Verify the current StyleGAN2-ADA baseline pipeline end to end and record official FID."
+}
