@@ -23,7 +23,12 @@ MODEL_ALIASES = {
 }
 
 ALLOWED_VARIANTS = {"medium", "high", "xhigh", "max"}
-DEFAULT_PROMPT = "read program.md and continue the autoresearch loop"
+DEFAULT_PROMPT = (
+    "Read program.md first. Then read project.md, run_state.json, handoff.md, "
+    "todo.md, plan.md, and results.tsv. Summarize current best result, active "
+    "or blocked state, and next concrete action before editing or running long "
+    "commands. Continue exactly one autoresearch loop iteration unless blocked."
+)
 
 
 def load_settings(path: Path) -> dict:

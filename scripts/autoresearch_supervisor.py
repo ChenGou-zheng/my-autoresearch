@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Keep the autoresearch loop running across opencode sessions.
 
-The agent can start long training jobs in the background and then exit. This
-supervisor watches `run_state.json`; if a recorded training PID is still alive,
-it waits. Once no training job is active, it launches the next `opencode run`
-using `autoresearch_setting.json`.
+The agent can start long jobs in the background and then exit. This supervisor
+watches `run_state.json`; if a recorded active process is still alive, it waits.
+Once no active job is running, it launches the next `opencode run` using
+`autoresearch_setting.json`.
 """
 
 from __future__ import annotations
@@ -35,7 +35,12 @@ MODEL_ALIASES = {
 }
 
 ALLOWED_VARIANTS = {"medium", "high", "xhigh", "max"}
-DEFAULT_PROMPT = "read program.md and continue the autoresearch loop"
+DEFAULT_PROMPT = (
+    "Read program.md first. Then read project.md, run_state.json, handoff.md, "
+    "todo.md, plan.md, and results.tsv. Summarize current best result, active "
+    "or blocked state, and next concrete action before editing or running long "
+    "commands. Continue exactly one autoresearch loop iteration unless blocked."
+)
 
 
 def now() -> str:
@@ -107,24 +112,38 @@ def format_command(cmd: list[str]) -> str:
     return shlex.join(cmd)
 
 
-def wait_for_training(poll_seconds: int, dry_run: bool) -> bool:
+def get_active_process(state: dict) -> tuple[int | None, str]:
+    active_process = state.get("active_process")
+    if isinstance(active_process, dict):
+        pid = active_process.get("pid")
+        kind = str(active_process.get("kind") or "process")
+    else:
+        pid = None
+        kind = "process"
+
+    if not pid and state.get("training_pid"):
+        pid = state.get("training_pid")
+        kind = "training"
+
+    try:
+        return int(pid), kind
+    except (TypeError, ValueError):
+        return None, kind
+
+
+def wait_for_active_process(poll_seconds: int, dry_run: bool) -> bool:
     while True:
         state = load_json(STATE_PATH, default={})
-        pid = state.get("training_pid")
         status = state.get("last_status")
+        pid, kind = get_active_process(state)
         if not pid or status != "running":
             return False
 
-        try:
-            pid_int = int(pid)
-        except (TypeError, ValueError):
+        if not pid_alive(pid):
+            print(f"[{now()}] recorded {kind} pid {pid} is no longer running")
             return False
 
-        if not pid_alive(pid_int):
-            print(f"[{now()}] recorded training pid {pid_int} is no longer running")
-            return False
-
-        print(f"[{now()}] waiting for training: {describe_pid(pid_int)}")
+        print(f"[{now()}] waiting for {kind}: {describe_pid(pid)}")
         if dry_run:
             return True
         time.sleep(poll_seconds)
@@ -191,7 +210,7 @@ def main() -> int:
 
     cycle = 0
     while args.max_cycles == 0 or cycle < args.max_cycles:
-        waiting = wait_for_training(args.poll_seconds, args.dry_run)
+        waiting = wait_for_active_process(args.poll_seconds, args.dry_run)
         if args.dry_run and waiting:
             return 0
         cycle += 1
