@@ -15,9 +15,11 @@ Do not modify `evaluate_fid.py`, `meteorite/`, or the local Inception weights.
 
 To set up a new experiment run:
 
-1. **Agree on a run tag**: propose a tag based on today's date, e.g. `may12`.
-   The branch `autoresearch/<tag>` must not already exist.
-2. **Create the branch**: `git checkout -b autoresearch/<tag>` from `main`.
+1. **Pick a run tag automatically** if one is not supplied by the user.
+   Default to today's short date tag, e.g. `may12`.
+2. **Create or switch to the branch**: use `autoresearch/<tag>`. If it already
+   exists, switch to it; otherwise create it from `main` or the current base
+   branch.
 3. **Read the in-scope files**:
    - `assignment3.md` - assignment requirements.
    - `evaluate_fid.py` - official evaluator; read only, do not edit.
@@ -25,8 +27,9 @@ To set up a new experiment run:
    - `src/generate.py` - image generation wrapper.
    - `assignment3_recommendation.md` - current method rationale.
    - `meteorite/` - raw reference images; inspect only, do not modify.
-4. **Initialize `results.tsv`** with only the header row. Leave it untracked.
-5. **Confirm and go**.
+4. **Initialize `results.tsv`** with only the header row if it does not already
+   exist. Leave it untracked when possible.
+5. **Proceed automatically** once setup is complete.
 
 Once setup is confirmed, begin experimentation.
 
@@ -46,6 +49,12 @@ Every new agent session must begin by reading these files, in this order:
 Do not start editing or running long experiments until the current best result,
 last failure mode, and next recommended task are clear.
 
+If `run_state.json` conflicts with the current git state, trust git as the
+source of truth, then update `run_state.json` to match.
+
+If a previous session left behind partial logs or an active training process,
+resolve that situation before starting a new experiment.
+
 ## Synchronization Files
 
 The autoresearch loop is designed to survive model switches and fresh sessions.
@@ -62,6 +71,9 @@ These files are the shared memory:
 At the end of every session, update all relevant synchronization files before
 stopping. If no experiment was run, still update `handoff.md`,
 `run_state.json`, and `autoresearch_setting.json` with the current status.
+
+When writing `results.tsv`, append new rows only. Do not rewrite or truncate the
+file unless the user explicitly asks for cleanup.
 
 ## Metrics
 
@@ -171,6 +183,10 @@ cat evaluation_results/fid_metrics.json
 If generation uses the latest checkpoint automatically, verify that it selected
 the intended `network-snapshot-*.pkl` before trusting the score.
 
+If a generation or evaluation step fails, fix the smallest obvious issue first.
+Only escalate to broader debugging if the failure repeats or the root cause is
+unclear.
+
 ## Logging Results
 
 When an experiment is done, log it to `results.tsv` using tabs, not commas.
@@ -263,6 +279,12 @@ opencode run -m '<resolved model>' --variant '<next_reasoning_effort>' '<prompt>
 If the model alias is unknown, the runner may pass it through as a raw model
 name. Keep aliases consistent unless there is a clear reason to use a raw name.
 
+If the next session type is ambiguous, prefer the safer, higher-capability
+choice:
+
+- `deepseekv4pro + max` for debugging, regressions, or architecture changes.
+- `deepseekv4flash + xhigh` for concrete experiment execution.
+
 ## The Experiment Loop
 
 The experiment runs on a dedicated branch, e.g. `autoresearch/may12`.
@@ -290,6 +312,9 @@ LOOP:
 14. End the current session. The external runner may start a new session with
     the selected model and reasoning variant.
 
+Do not reset or discard unrelated user changes. Only revert your own experiment
+changes when the experiment is judged worse or broken.
+
 ## End-Of-Session Handoff
 
 Before stopping, ensure `handoff.md` includes:
@@ -313,6 +338,9 @@ Ensure `run_state.json` includes at least:
 - Consecutive crash count.
 - Selected next task.
 
+If a session is interrupted mid-run, set `last_status` to `blocked` or
+`running` as appropriate, and leave enough detail in `handoff.md` for recovery.
+
 Ensure `todo.md` has a clear top task, and `autoresearch_setting.json` has the
 next model and reasoning variant.
 
@@ -330,6 +358,6 @@ next model and reasoning variant.
 
 ## Autonomous Operation
 
-After the user confirms the run has begun, continue the experiment loop without
-asking whether to keep going. Stop only if interrupted, blocked by missing
-resources, or the machine cannot run the required commands.
+After the run begins, continue the experiment loop without asking whether to
+keep going. Stop only if interrupted, blocked by missing resources, or the
+machine cannot run the required commands.
