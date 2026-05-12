@@ -2,8 +2,8 @@
   "next_model": "deepseekv4flash",
   "next_reasoning_effort": "xhigh",
   "expected_work_type": "experiment",
-  "next_task": "Verify the current StyleGAN2-ADA baseline pipeline end to end and record official FID.",
-  "reason": "The next task is a clearly specified baseline experiment using the existing pipeline.",
+  "next_task": "Run a shorter checkpoint-bounded continuation from snapshot-001400 or another simple planned experiment, then evaluate official FID and update experiment_journal.md.",
+  "reason": "The long resumed training was manually stopped; next work should be a bounded experiment with better traceability.",
   "prompt": "read program.md and continue the autoresearch loop",
-  "updated_at": "2026-05-12T00:00:00+08:00"
+  "updated_at": "2026-05-12T14:20:00+08:00"
 }

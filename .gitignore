@@ -7,11 +7,15 @@ generated_pictures/
 training-runs/
 evaluation_results/
 
-# StyleGAN2-ADA cloned repo
-stylegan2-ada/
+# StyleGAN2-ADA vendored source
+stylegan2-ada/.git/
 
 # Logs and compiled extensions
-training.log
+*.log
 *.so
 __pycache__/
 *.pyc
+autoresearch/tmp/*
+!autoresearch/tmp/README.md
+!autoresearch/logs/train_centered256.log
+!autoresearch/sessions/session-20260512-150908-cycle1.log

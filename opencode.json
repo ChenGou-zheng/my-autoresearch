@@ -1,0 +1,19 @@
+{
+    "$schema": "https://opencode.ai/config.json",
+    "permission": {
+        "bash": {
+            "*": "allow",
+            "rm": "ask",
+            "mv": "ask"
+        },
+        "edit": {
+            "*": "allow",
+            "meteorite/**": "deny",
+            "assignment3.md": "deny",
+            "evaluate_fid.py": "deny",
+            "inception_v3_google*": "deny",
+            "opencode.json": "deny",
+            "program.md": "deny"
+        }
+    }
+}

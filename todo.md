@@ -2,16 +2,21 @@
 
 ## Now
 
-- [ ] Establish or verify the current StyleGAN2-ADA baseline with official FID.
+- [ ] Run a shorter checkpoint-bounded continuation from snapshot-001400 or
+      another simple planned experiment, then evaluate official FID.
+- [ ] Keep `experiment_journal.md` updated for every non-trivial attempt.
 
 ## Next
 
-- [ ] Compare candidate checkpoints using official `evaluate_fid.py`, not only `fid50k_full`.
-- [ ] Try truncation values for the best checkpoint, e.g. `1.0`, `0.8`, `0.7`.
-- [ ] Evaluate whether `256` or `512` preprocessing is worth the extra runtime.
-- [ ] Record every completed run in `results.tsv`.
+- [ ] If official FID improves, try further training or experiment with:
+  - Different augmentation pipelines (augpipe)
+  - Gamma/regularization tuning
+  - Higher resolution (512px)
+- [ ] If FID does NOT improve, try different strategy:
+  - Fresh training at different settings
+  - Evaluate SDXL LoRA as alternative
 
 ## Later
 
-- [ ] Consider alternate augmentation settings after the baseline is stable.
-- [ ] Summarize the best run and generation settings for the final report.
+- [ ] Summarize the best run and generation settings for the final report
+- [ ] Generate nine-grid image for report

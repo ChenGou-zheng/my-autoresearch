@@ -1,14 +1,16 @@
 {
   "active": false,
   "last_session_id": null,
-  "last_updated": "2026-05-12T00:00:00+08:00",
-  "current_branch": "main",
-  "best_commit": null,
-  "best_official_fid": null,
-  "best_proxy_fid50k": null,
-  "best_checkpoint": null,
-  "best_generation_settings": null,
-  "last_status": "not_started",
+  "last_updated": "2026-05-12T14:20:00+08:00",
+  "current_branch": "autoresearch/may12",
+  "best_commit": "199834c",
+  "best_official_fid": 68.45,
+  "best_proxy_fid50k": 52.17,
+  "best_checkpoint": "training-runs/00000-meteorite256-mirror-auto1-kimg25000-cfnc/network-snapshot-001400.pkl",
+  "best_generation_settings": "trunc=1.0, seeds=0-999, 256px",
+  "last_status": "stopped",
   "consecutive_crashes": 0,
-  "selected_next_task": "Verify the current StyleGAN2-ADA baseline pipeline end to end and record official FID."
+  "selected_next_task": "Run a shorter checkpoint-bounded continuation or try another simple strategy, then evaluate official FID.",
+  "training_pid": null,
+  "training_run_dir": "training-runs/00001-meteorite256-mirror-auto1-kimg2000-cfnc-resumecustom"
 }

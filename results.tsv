@@ -1,1 +1,7 @@
 commit	official_fid	proxy_fid50k	memory_gb	status	description
+6106613	68.4459	52.17	4.71	keep	baseline 256px cfnc snapshot-001400 trunc1.0
+199834c	74.2177	52.55	4.71	keep	snapshot-001200 trunc1.0 checkpoint comparison
+199834c	93.9487	73.67	4.71	keep	snapshot-000600 trunc1.0 checkpoint comparison
+199834c	80.7609	52.17	4.71	keep	snapshot-001400 trunc0.7 truncation sweep
+199834c	72.5195	52.17	4.71	keep	snapshot-001400 trunc0.8 truncation sweep
+199834c	68.6895	52.17	4.71	keep	snapshot-001400 trunc0.9 truncation sweep

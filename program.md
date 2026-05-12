@@ -31,7 +31,7 @@ To set up a new experiment run:
    exist. Leave it untracked when possible.
 5. **Proceed automatically** once setup is complete.
 
-Once setup is confirmed, begin experimentation.
+Once setup is complete, begin experimentation.
 
 ## Session Startup
 
@@ -64,6 +64,7 @@ These files are the shared memory:
 - `plan.md`: medium-term strategy and experiment roadmap.
 - `todo.md`: short-term task queue. Keep the top item actionable.
 - `handoff.md`: concise narrative handoff for the next session.
+- `experiment_journal.md`: detailed narrative record of experiment attempts.
 - `run_state.json`: machine-readable state for scripts and agents.
 - `autoresearch_setting.json`: model and reasoning setting for the next session.
 - `results.tsv`: tab-separated experiment results. Keep untracked if possible.
@@ -72,8 +73,31 @@ At the end of every session, update all relevant synchronization files before
 stopping. If no experiment was run, still update `handoff.md`,
 `run_state.json`, and `autoresearch_setting.json` with the current status.
 
+Use `results.tsv` for compact machine-readable scores. Use
+`experiment_journal.md` for detailed reasoning and traceability. Every
+non-trivial attempt should get a journal entry even if it crashes or is stopped.
+
 When writing `results.tsv`, append new rows only. Do not rewrite or truncate the
 file unless the user explicitly asks for cleanup.
+
+## File Layout
+
+Keep the repository root readable. Root-level files should be stable project
+files, synchronization files, or assignment-required paths.
+
+Preferred layout for new autoresearch artifacts:
+
+- `autoresearch/logs/` - training, generation, evaluation, and command logs.
+- `autoresearch/sessions/` - logs from each `opencode run` session.
+- `autoresearch/tmp/` - temporary notes or scratch outputs that can be deleted.
+- `training-runs/` - StyleGAN2-ADA checkpoints and internal logs.
+- `generated_pictures/` - exactly the images intended for the current official
+  FID evaluation.
+- `evaluation_results/` - official evaluator output.
+
+Avoid adding new root-level `run*.log`, `fid*.log`, or `gen*.log` files. Legacy
+root logs may exist; do not move them while a running process or handoff still
+refers to them.
 
 ## Metrics
 
@@ -308,7 +332,8 @@ LOOP:
 12. If official FID is equal or worse, discard the code change and return to
     the previous best commit, but keep the untracked `results.tsv` history.
 13. Update `todo.md`, `plan.md` if strategy changed, `handoff.md`,
-    `run_state.json`, and `autoresearch_setting.json`.
+    `experiment_journal.md`, `run_state.json`, and
+    `autoresearch_setting.json`.
 14. End the current session. The external runner may start a new session with
     the selected model and reasoning variant.
 
@@ -326,6 +351,10 @@ Before stopping, ensure `handoff.md` includes:
 - Results or crash details.
 - The next recommended task and why.
 - Warnings for the next session.
+
+Before stopping, ensure `experiment_journal.md` has an entry for each meaningful
+attempt. Include hypothesis, changed files/settings, commands, logs,
+checkpoints, official FID, proxy FID, decision, and follow-up.
 
 Ensure `run_state.json` includes at least:
 
@@ -361,3 +390,9 @@ next model and reasoning variant.
 After the run begins, continue the experiment loop without asking whether to
 keep going. Stop only if interrupted, blocked by missing resources, or the
 machine cannot run the required commands.
+
+For true unattended operation, run `scripts/autoresearch_supervisor.py` instead
+of launching `scripts/autoresearch_next.py` manually. The supervisor handles the
+case where an agent session exits after starting a background training process:
+it waits for the recorded `training_pid` to finish, then starts the next
+`opencode run` session from `autoresearch_setting.json`.
