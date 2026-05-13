@@ -29,7 +29,8 @@ The current harness has two launch modes:
   from `autoresearch_setting.json`.
 - `scripts/autoresearch_supervisor.py`: repeats the same launch step, but first
   checks `run_state.json` and waits if the previous session recorded an active
-  long-running process.
+  long-running process. New state should use `active_process`; `training_pid`
+  is still read only for older state files.
 
 ```mermaid
 flowchart TD
@@ -56,7 +57,9 @@ flowchart TD
 In practice, every session should end by synchronizing the files that the next
 session will read. `run_state.json` is the machine-readable status, `handoff.md`
 is the human-readable summary, and `autoresearch_setting.json` controls the
-next model, reasoning effort, and startup prompt.
+next model, reasoning effort, and startup prompt. If the supervisor finds a
+recorded process that no longer exists, it marks the state as stopped and
+records the stale pid before launching the next session.
 
 ## Usage
 
@@ -76,4 +79,5 @@ uv run python scripts/autoresearch_supervisor.py
 ```
 
 The supervisor waits for `run_state.json.active_process.pid` when a long job is
-running, then launches the next configured session.
+running, with read-only compatibility for the older `training_pid` field. If no
+active process is alive, it launches the next configured session.

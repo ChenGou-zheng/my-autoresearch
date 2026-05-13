@@ -11,51 +11,29 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import json
 import os
-import shlex
 import subprocess
 import sys
 import time
-from pathlib import Path
 
-
-PROJECT_DIR = Path(__file__).resolve().parent.parent
-STATE_PATH = PROJECT_DIR / "run_state.json"
-SETTINGS_PATH = PROJECT_DIR / "autoresearch_setting.json"
-SESSION_LOG_DIR = PROJECT_DIR / "autoresearch" / "sessions"
-
-MODEL_ALIASES = {
-    "deepseekv4pro": "deepseek/deepseek-v4-pro",
-    "deepseek-v4-pro": "deepseek/deepseek-v4-pro",
-    "deepseek/deepseek-v4-pro": "deepseek/deepseek-v4-pro",
-    "deepseekv4flash": "deepseek/deepseek-v4-flash",
-    "deepseek-v4-flash": "deepseek/deepseek-v4-flash",
-    "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
-}
-
-ALLOWED_VARIANTS = {"medium", "high", "xhigh", "max"}
-DEFAULT_PROMPT = (
-    "Read program.md first. Then read project.md, run_state.json, handoff.md, "
-    "todo.md, plan.md, and results.tsv. Summarize current best result, active "
-    "or blocked state, and next concrete action before editing or running long "
-    "commands. Continue exactly one autoresearch loop iteration unless blocked."
+from autoresearch_common import (
+    DEFAULT_SETTINGS,
+    DEFAULT_STATE,
+    PROJECT_DIR,
+    build_opencode_command,
+    format_command,
+    load_json,
+    write_json,
 )
+
+
+STATE_PATH = DEFAULT_STATE
+SETTINGS_PATH = DEFAULT_SETTINGS
+SESSION_LOG_DIR = PROJECT_DIR / "autoresearch" / "sessions"
 
 
 def now() -> str:
     return dt.datetime.now().astimezone().isoformat(timespec="seconds")
-
-
-def load_json(path: Path, default: dict | None = None) -> dict:
-    if not path.exists():
-        if default is not None:
-            return default
-        raise SystemExit(f"missing required file: {path}")
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as exc:
-        raise SystemExit(f"invalid JSON in {path}: {exc}") from None
 
 
 def pid_alive(pid: int) -> bool:
@@ -81,37 +59,6 @@ def describe_pid(pid: int) -> str:
     return output or f"pid {pid}"
 
 
-def resolve_model(raw_model: str) -> str:
-    model = raw_model.strip()
-    return MODEL_ALIASES.get(model, model)
-
-
-def resolve_variant(raw_variant: str) -> str:
-    variant = raw_variant.strip()
-    if variant not in ALLOWED_VARIANTS:
-        allowed = ", ".join(sorted(ALLOWED_VARIANTS))
-        raise SystemExit(f"unsupported variant {variant!r}; expected one of: {allowed}")
-    return variant
-
-
-def build_opencode_command(settings: dict, prompt_override: str | None = None) -> list[str]:
-    raw_model = settings.get("next_model")
-    raw_variant = settings.get("next_reasoning_effort")
-    if not raw_model:
-        raise SystemExit("autoresearch_setting.json is missing next_model")
-    if not raw_variant:
-        raise SystemExit("autoresearch_setting.json is missing next_reasoning_effort")
-
-    model = resolve_model(str(raw_model))
-    variant = resolve_variant(str(raw_variant))
-    prompt = prompt_override or str(settings.get("prompt") or DEFAULT_PROMPT)
-    return ["opencode", "run", "-m", model, "--variant", variant, prompt]
-
-
-def format_command(cmd: list[str]) -> str:
-    return shlex.join(cmd)
-
-
 def get_active_process(state: dict) -> tuple[int | None, str]:
     active_process = state.get("active_process")
     if isinstance(active_process, dict):
@@ -131,6 +78,18 @@ def get_active_process(state: dict) -> tuple[int | None, str]:
         return None, kind
 
 
+def mark_stale_process(state: dict, pid: int, kind: str) -> None:
+    detected_at = now()
+    state["active"] = False
+    state["last_status"] = "stopped"
+    state["last_updated"] = detected_at
+    state["stale_process"] = {"pid": pid, "kind": kind, "detected_at": detected_at}
+    state["active_process"] = None
+    if str(state.get("training_pid")) == str(pid):
+        state["training_pid"] = None
+    write_json(STATE_PATH, state)
+
+
 def wait_for_active_process(poll_seconds: int, dry_run: bool) -> bool:
     while True:
         state = load_json(STATE_PATH, default={})
@@ -141,6 +100,8 @@ def wait_for_active_process(poll_seconds: int, dry_run: bool) -> bool:
 
         if not pid_alive(pid):
             print(f"[{now()}] recorded {kind} pid {pid} is no longer running")
+            if not dry_run:
+                mark_stale_process(state, pid, kind)
             return False
 
         print(f"[{now()}] waiting for {kind}: {describe_pid(pid)}")
