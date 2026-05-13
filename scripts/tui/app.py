@@ -31,7 +31,6 @@ class Layout:
 
 
 def read_message(screen: curses.window, event_type: str, force: bool) -> str | None:
-    curses.echo()
     screen.nodelay(False)
     screen.timeout(-1)
     try:
@@ -41,28 +40,41 @@ def read_message(screen: curses.window, event_type: str, force: bool) -> str | N
 
     height, width = screen.getmaxyx()
     prompt = f"{event_type}{' force' if force else ''} message: "
-    screen.move(height - 1, 0)
-    screen.clrtoeol()
-    safe_addstr(screen, height - 1, 0, prompt, curses.A_BOLD)
-    screen.refresh()
+    max_message_width = max(0, width - len(prompt) - 1)
+    chars: list[str] = []
     try:
-        raw = screen.getstr(
-            height - 1,
-            min(len(prompt), width - 1),
-            max(0, width - len(prompt) - 1),
-        )
+        while True:
+            screen.move(height - 1, 0)
+            screen.clrtoeol()
+            safe_addstr(screen, height - 1, 0, prompt, curses.A_BOLD)
+            visible = "".join(chars)[-max_message_width:] if max_message_width else ""
+            safe_addstr(screen, height - 1, len(prompt), visible)
+            screen.move(height - 1, min(width - 1, len(prompt) + len(visible)))
+            screen.refresh()
+
+            key = screen.get_wch()
+            if key == "\x1b":
+                return None
+            if key in ("\n", "\r"):
+                return "".join(chars).strip()
+            if key in ("\b", "\x7f") or key == curses.KEY_BACKSPACE:
+                if chars:
+                    chars.pop()
+                continue
+            if key == "\x15":
+                chars.clear()
+                continue
+            if isinstance(key, str) and key.isprintable():
+                chars.append(key)
     except (KeyboardInterrupt, curses.error):
         return None
     finally:
-        curses.noecho()
         screen.nodelay(True)
         screen.timeout(100)
         try:
             curses.curs_set(0)
         except curses.error:
             pass
-
-    return raw.decode("utf-8", errors="replace").strip()
 
 
 def handle_control_input(screen: curses.window, key: int) -> str:
