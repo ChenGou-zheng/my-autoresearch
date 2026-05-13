@@ -15,6 +15,49 @@ experiments across multiple agent sessions.
 - `autoresearch_setting.json`: next model, reasoning effort, and startup prompt.
 - `results.tsv`: compact result table.
 
+## Workflow
+
+Different from the original
+[Autoresearch](https://github.com/karpathy/autoresearch), this template uses
+short `opencode run` sessions plus explicit state files. The goal is to keep
+each agent context small while preserving enough handoff state for the next
+session.
+
+The current harness has two launch modes:
+
+- `scripts/autoresearch_next.py`: launches exactly one next `opencode run`
+  from `autoresearch_setting.json`.
+- `scripts/autoresearch_supervisor.py`: repeats the same launch step, but first
+  checks `run_state.json` and waits if the previous session recorded an active
+  long-running process.
+
+```mermaid
+flowchart TD
+    A["User or supervisor starts harness"] --> B{"Launch mode"}
+    B -->|"single session"| C["autoresearch_next.py"]
+    B -->|"unattended loop"| D["autoresearch_supervisor.py"]
+    D --> E["Read run_state.json"]
+    E --> F{"last_status is running and active_process/training_pid is alive?"}
+    F -->|"yes"| G["Wait and poll again"]
+    G --> E
+    F -->|"no"| H["Read autoresearch_setting.json"]
+    C --> H
+    H --> I["Build opencode run command with next_model, variant, prompt"]
+    I --> J["Agent session starts"]
+    J --> K["Read program.md, project.md, run_state.json, handoff.md, todo.md, plan.md, results.tsv"]
+    K --> L["Run one bounded experiment or maintenance task"]
+    L --> M["Update logs, results.tsv, experiment_journal.md, handoff.md, run_state.json, autoresearch_setting.json"]
+    M --> N["Session exits"]
+    N --> O{"supervisor still cycling?"}
+    O -->|"yes"| D
+    O -->|"no"| P["Stop"]
+```
+
+In practice, every session should end by synchronizing the files that the next
+session will read. `run_state.json` is the machine-readable status, `handoff.md`
+is the human-readable summary, and `autoresearch_setting.json` controls the
+next model, reasoning effort, and startup prompt.
+
 ## Usage
 
 1. Copy this folder into a project.
