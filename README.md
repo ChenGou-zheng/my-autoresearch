@@ -31,6 +31,8 @@ The current harness has two launch modes:
   checks `run_state.json` and waits if the previous session recorded an active
   long-running process. New state should use `active_process`; `training_pid`
   is still read only for older state files.
+- `scripts/autoresearch_tui.py`: opens a read-only terminal dashboard for
+  current status, todo items, recent results, and the latest log tail.
 
 ```mermaid
 flowchart TD
@@ -76,6 +78,12 @@ For unattended cycling, use:
 
 ```bash
 uv run python scripts/autoresearch_supervisor.py
+```
+
+To observe a run without changing state, use:
+
+```bash
+python3 scripts/autoresearch_tui.py
 ```
 
 The supervisor waits for `run_state.json.active_process.pid` when a long job is
