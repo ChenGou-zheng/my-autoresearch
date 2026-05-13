@@ -86,6 +86,19 @@ To observe a run without changing state, use:
 python3 scripts/autoresearch_tui.py
 ```
 
+The TUI also accepts user control events:
+
+- `s`: queue a suggestion for the next `opencode run`.
+- `S`: queue a suggestion and interrupt the current recorded session/process.
+- `f`: queue a finish request for the next run; the supervisor stops after
+  that run exits.
+- `F`: queue a finish request and interrupt the current recorded
+  session/process.
+- `q`: quit the TUI only.
+
+Control events are stored in `autoresearch/inbox.jsonl` and are appended to the
+next launch prompt before that run starts.
+
 The supervisor waits for `run_state.json.active_process.pid` when a long job is
 running, with read-only compatibility for the older `training_pid` field. If no
 active process is alive, it launches the next configured session.

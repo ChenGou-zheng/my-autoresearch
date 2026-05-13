@@ -10,6 +10,7 @@ from pathlib import Path
 PROJECT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_SETTINGS = PROJECT_DIR / "autoresearch_setting.json"
 DEFAULT_STATE = PROJECT_DIR / "run_state.json"
+DEFAULT_INBOX = PROJECT_DIR / "autoresearch" / "inbox.jsonl"
 
 MODEL_ALIASES = {
     "deepseekv4pro": "deepseek/deepseek-v4-pro",
@@ -69,6 +70,21 @@ def build_opencode_command(settings: dict, prompt_override: str | None = None) -
     variant = resolve_variant(str(raw_variant))
     prompt = prompt_override or str(settings.get("prompt") or DEFAULT_PROMPT)
     return ["opencode", "run", "-m", model, "--variant", variant, prompt]
+
+
+def build_opencode_command_with_controls(
+    settings: dict,
+    prompt_override: str | None = None,
+    consume_controls: bool = True,
+) -> tuple[list[str], bool, list[dict]]:
+    from autoresearch_control import apply_pending_events
+
+    cmd = build_opencode_command(settings, prompt_override)
+    cmd[-1], should_stop_after, events = apply_pending_events(
+        cmd[-1],
+        consume=consume_controls,
+    )
+    return cmd, should_stop_after, events
 
 
 def format_command(cmd: list[str]) -> str:

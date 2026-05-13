@@ -20,7 +20,7 @@ from autoresearch_common import (
     DEFAULT_SETTINGS,
     DEFAULT_STATE,
     PROJECT_DIR,
-    build_opencode_command,
+    build_opencode_command_with_controls,
     format_command,
     load_json,
     write_json,
@@ -90,6 +90,37 @@ def mark_stale_process(state: dict, pid: int, kind: str) -> None:
     write_json(STATE_PATH, state)
 
 
+def record_opencode_session(pid: int, cycle: int, log_path: str) -> None:
+    state = load_json(STATE_PATH, default={})
+    state["active"] = True
+    state["last_status"] = "running"
+    state["last_updated"] = now()
+    state["opencode_session"] = {
+        "pid": pid,
+        "kind": "opencode",
+        "cycle": cycle,
+        "log_path": log_path,
+        "started_at": now(),
+    }
+    write_json(STATE_PATH, state)
+
+
+def clear_opencode_session(return_code: int) -> None:
+    state = load_json(STATE_PATH, default={})
+    session = state.get("opencode_session")
+    if isinstance(session, dict):
+        session["finished_at"] = now()
+        session["return_code"] = return_code
+        state["last_opencode_session"] = session
+    state["opencode_session"] = None
+    if not state.get("active_process") and not state.get("training_pid"):
+        state["active"] = False
+        if state.get("last_status") == "running":
+            state["last_status"] = "stopped"
+    state["last_updated"] = now()
+    write_json(STATE_PATH, state)
+
+
 def wait_for_active_process(poll_seconds: int, dry_run: bool) -> bool:
     while True:
         state = load_json(STATE_PATH, default={})
@@ -110,13 +141,19 @@ def wait_for_active_process(poll_seconds: int, dry_run: bool) -> bool:
         time.sleep(poll_seconds)
 
 
-def launch_session(cycle: int, dry_run: bool, prompt_override: str | None) -> int:
+def launch_session(cycle: int, dry_run: bool, prompt_override: str | None) -> tuple[int, bool]:
     settings = load_json(SETTINGS_PATH)
-    cmd = build_opencode_command(settings, prompt_override)
+    cmd, should_stop_after, events = build_opencode_command_with_controls(
+        settings,
+        prompt_override,
+        consume_controls=not dry_run,
+    )
     print(f"[{now()}] launching cycle {cycle}: {format_command(cmd)}")
+    if events:
+        print(f"[{now()}] applied {len(events)} pending user control event(s)")
 
     if dry_run:
-        return 0
+        return 0, should_stop_after
 
     SESSION_LOG_DIR.mkdir(parents=True, exist_ok=True)
     stamp = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -132,17 +169,20 @@ def launch_session(cycle: int, dry_run: bool, prompt_override: str | None) -> in
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            start_new_session=True,
         )
+        record_opencode_session(proc.pid, cycle, str(log_path))
         assert proc.stdout is not None
         for line in proc.stdout:
             print(line, end="")
             log.write(line)
         return_code = proc.wait()
+        clear_opencode_session(return_code)
         log.write(f"\n# finished_at: {now()}\n")
         log.write(f"# return_code: {return_code}\n")
 
     print(f"[{now()}] cycle {cycle} exited with {return_code}; log: {log_path}")
-    return return_code
+    return return_code, should_stop_after
 
 
 def main() -> int:
@@ -176,8 +216,11 @@ def main() -> int:
             return 0
         cycle += 1
         prompt_override = args.prompt_option or args.prompt_arg
-        return_code = launch_session(cycle, args.dry_run, prompt_override)
+        return_code, should_stop_after = launch_session(cycle, args.dry_run, prompt_override)
         if args.dry_run:
+            return return_code
+        if should_stop_after:
+            print(f"[{now()}] finish control event consumed; stopping supervisor loop")
             return return_code
         if return_code != 0 and args.stop_on_error:
             return return_code

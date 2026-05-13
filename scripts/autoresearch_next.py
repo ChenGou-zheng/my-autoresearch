@@ -11,7 +11,7 @@ from pathlib import Path
 from autoresearch_common import (
     DEFAULT_SETTINGS,
     PROJECT_DIR,
-    build_opencode_command,
+    build_opencode_command_with_controls,
     format_command,
     load_json,
 )
@@ -27,8 +27,13 @@ def load_settings(path: Path) -> dict:
         raise
 
 
-def build_command(settings: dict, prompt_override: str | None) -> list[str]:
-    return build_opencode_command(settings, prompt_override)
+def build_command(settings: dict, prompt_override: str | None, consume_controls: bool = True) -> list[str]:
+    cmd, _should_stop_after, _events = build_opencode_command_with_controls(
+        settings,
+        prompt_override,
+        consume_controls=consume_controls,
+    )
+    return cmd
 
 
 def main() -> int:
@@ -54,7 +59,7 @@ def main() -> int:
     args = parser.parse_args()
 
     settings = load_settings(args.settings)
-    cmd = build_command(settings, args.prompt)
+    cmd = build_command(settings, args.prompt, consume_controls=not args.dry_run)
 
     print(format_command(cmd))
     if args.dry_run:

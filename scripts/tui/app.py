@@ -7,6 +7,8 @@ import datetime as dt
 import time
 from dataclasses import dataclass
 
+from autoresearch_common import DEFAULT_STATE
+from autoresearch_control import append_event, interrupt_from_state
 from tui.render import draw_log, draw_results, draw_status, draw_todo, safe_addstr
 from tui.snapshot import build_snapshot
 
@@ -26,6 +28,63 @@ class Layout:
     todo_win: curses.window
     results_win: curses.window
     log_win: curses.window
+
+
+def read_message(screen: curses.window, event_type: str, force: bool) -> str | None:
+    curses.echo()
+    screen.nodelay(False)
+    screen.timeout(-1)
+    try:
+        curses.curs_set(1)
+    except curses.error:
+        pass
+
+    height, width = screen.getmaxyx()
+    prompt = f"{event_type}{' force' if force else ''} message: "
+    screen.move(height - 1, 0)
+    screen.clrtoeol()
+    safe_addstr(screen, height - 1, 0, prompt, curses.A_BOLD)
+    screen.refresh()
+    try:
+        raw = screen.getstr(
+            height - 1,
+            min(len(prompt), width - 1),
+            max(0, width - len(prompt) - 1),
+        )
+    except (KeyboardInterrupt, curses.error):
+        return None
+    finally:
+        curses.noecho()
+        screen.nodelay(True)
+        screen.timeout(100)
+        try:
+            curses.curs_set(0)
+        except curses.error:
+            pass
+
+    return raw.decode("utf-8", errors="replace").strip()
+
+
+def handle_control_input(screen: curses.window, key: int) -> str:
+    mapping = {
+        ord("s"): ("suggest", False),
+        ord("S"): ("suggest", True),
+        ord("f"): ("finish", False),
+        ord("F"): ("finish", True),
+    }
+    event_type, force = mapping[key]
+    message = read_message(screen, event_type, force)
+    if message is None:
+        return "input cancelled"
+
+    event = append_event(event_type, message, force=force)
+    if not force:
+        return f"queued {event_type} event {event['id'][:8]}"
+
+    killed = interrupt_from_state(DEFAULT_STATE)
+    if killed:
+        return f"queued force {event_type}; sent TERM to pid(s): {', '.join(map(str, killed))}"
+    return f"queued force {event_type}; no live pid found"
 
 
 def create_layout(height: int, width: int) -> Layout:
@@ -60,11 +119,14 @@ def render(screen: curses.window) -> None:
     screen.leaveok(True)
     layout: Layout | None = None
     terminal_was_too_small = False
+    status_message = ""
 
     while True:
         key = screen.getch()
         if key in (ord("q"), ord("Q")):
             return
+        if key in (ord("s"), ord("S"), ord("f"), ord("F")):
+            status_message = handle_control_input(screen, key)
         resized = False
         if key == curses.KEY_RESIZE:
             screen.erase()
@@ -109,7 +171,11 @@ def render(screen: curses.window) -> None:
         now = dt.datetime.now().strftime("%H:%M:%S")
         screen.move(height - 1, 0)
         screen.clrtoeol()
-        safe_addstr(screen, height - 1, 0, f"q quit | auto-refresh {REFRESH_SECONDS:.0f}s | {now}")
+        help_text = "s suggest | S force suggest | f finish | F force finish | q quit"
+        footer = f"{help_text} | {now}"
+        if status_message:
+            footer = f"{status_message} | {footer}"
+        safe_addstr(screen, height - 1, 0, footer)
         screen.noutrefresh()
         curses.doupdate()
         time.sleep(REFRESH_SECONDS)

@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable
 
 from autoresearch_common import PROJECT_DIR
+from autoresearch_control import pending_events
 
 
 STATE_PATH = PROJECT_DIR / "run_state.json"
@@ -36,6 +37,7 @@ class TuiSnapshot:
     latest_log_lines: list[str]
     todo_lines: list[str]
     results: ResultTable
+    pending_control_count: int
 
 
 def read_text(path: Path, default: str = "") -> str:
@@ -82,16 +84,27 @@ def pid_alive(pid: int | None) -> bool:
 
 
 def active_pid(state: dict) -> int | None:
+    opencode_session = state.get("opencode_session")
+    if isinstance(opencode_session, dict):
+        pid = _as_pid(opencode_session.get("pid"))
+        if pid:
+            return pid
+
     active_process = state.get("active_process")
     pid = None
     if isinstance(active_process, dict):
         pid = active_process.get("pid")
     if not pid:
         pid = state.get("training_pid")
+    return _as_pid(pid)
+
+
+def _as_pid(raw: object) -> int | None:
     try:
-        return int(pid) if pid else None
+        pid = int(raw) if raw else None
     except (TypeError, ValueError):
         return None
+    return pid if pid and pid > 0 else None
 
 
 def parse_results(limit: int = 8) -> ResultTable:
@@ -148,4 +161,5 @@ def build_snapshot(todo_limit: int = 8, results_limit: int = 8, log_limit: int =
         latest_log_lines=log_lines,
         todo_lines=parse_todo(todo_limit),
         results=parse_results(results_limit),
+        pending_control_count=len(pending_events()),
     )

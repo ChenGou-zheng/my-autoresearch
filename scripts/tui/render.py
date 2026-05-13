@@ -55,6 +55,7 @@ def draw_status(win: curses.window, snapshot: TuiSnapshot) -> None:
         safe_addstr(win, 4, 2, f"latest log: {rel} ({snapshot.latest_log_age})")
     else:
         safe_addstr(win, 4, 2, "latest log: none")
+    safe_addstr(win, 5, 2, f"pending user events: {snapshot.pending_control_count}")
 
 
 def draw_todo(win: curses.window, snapshot: TuiSnapshot) -> None:
