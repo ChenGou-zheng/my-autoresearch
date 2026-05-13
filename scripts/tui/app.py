@@ -5,6 +5,7 @@ from __future__ import annotations
 import curses
 import datetime as dt
 import time
+from dataclasses import dataclass
 
 from tui.render import draw_log, draw_results, draw_status, draw_todo, safe_addstr
 from tui.snapshot import build_snapshot
@@ -13,55 +14,103 @@ from tui.snapshot import build_snapshot
 REFRESH_SECONDS = 1.0
 
 
+@dataclass
+class Layout:
+    height: int
+    width: int
+    status_height: int
+    middle_height: int
+    log_height: int
+    left_width: int
+    status_win: curses.window
+    todo_win: curses.window
+    results_win: curses.window
+    log_win: curses.window
+
+
+def create_layout(height: int, width: int) -> Layout:
+    status_height = 7
+    footer_height = 1
+    middle_height = max(6, (height - status_height - footer_height) // 2)
+    log_height = height - status_height - middle_height - footer_height
+    left_width = max(30, width // 3)
+    right_width = width - left_width
+
+    return Layout(
+        height=height,
+        width=width,
+        status_height=status_height,
+        middle_height=middle_height,
+        log_height=log_height,
+        left_width=left_width,
+        status_win=curses.newwin(status_height, width, 0, 0),
+        todo_win=curses.newwin(middle_height, left_width, status_height, 0),
+        results_win=curses.newwin(middle_height, right_width, status_height, left_width),
+        log_win=curses.newwin(log_height, width, status_height + middle_height, 0),
+    )
+
+
 def render(screen: curses.window) -> None:
-    curses.curs_set(0)
+    try:
+        curses.curs_set(0)
+    except curses.error:
+        pass
     screen.nodelay(True)
     screen.timeout(100)
+    screen.leaveok(True)
+    layout: Layout | None = None
+    terminal_was_too_small = False
 
     while True:
         key = screen.getch()
         if key in (ord("q"), ord("Q")):
             return
+        resized = False
         if key == curses.KEY_RESIZE:
             screen.erase()
+            layout = None
+            resized = True
 
         height, width = screen.getmaxyx()
-        screen.erase()
 
         if height < 20 or width < 70:
+            if resized or not terminal_was_too_small:
+                screen.erase()
             safe_addstr(screen, 0, 0, "Terminal too small. Need at least 70x20. Press q to quit.")
-            screen.refresh()
+            screen.noutrefresh()
+            curses.doupdate()
+            terminal_was_too_small = True
             time.sleep(REFRESH_SECONDS)
             continue
 
-        status_height = 7
-        footer_height = 1
-        middle_height = max(6, (height - status_height - footer_height) // 2)
-        log_height = height - status_height - middle_height - footer_height
-        left_width = max(30, width // 3)
-        right_width = width - left_width
+        if terminal_was_too_small:
+            screen.erase()
+            layout = None
+            terminal_was_too_small = False
+
+        if layout is None or layout.height != height or layout.width != width:
+            screen.erase()
+            layout = create_layout(height, width)
 
         snapshot = build_snapshot(
-            todo_limit=max(1, middle_height - 2),
-            results_limit=max(1, middle_height - 3),
-            log_limit=max(1, log_height - 2),
+            todo_limit=max(1, layout.middle_height - 2),
+            results_limit=max(1, layout.middle_height - 3),
+            log_limit=max(1, layout.log_height - 2),
         )
 
-        status_win = curses.newwin(status_height, width, 0, 0)
-        todo_win = curses.newwin(middle_height, left_width, status_height, 0)
-        results_win = curses.newwin(middle_height, right_width, status_height, left_width)
-        log_win = curses.newwin(log_height, width, status_height + middle_height, 0)
+        draw_status(layout.status_win, snapshot)
+        draw_todo(layout.todo_win, snapshot)
+        draw_results(layout.results_win, snapshot)
+        draw_log(layout.log_win, snapshot)
 
-        draw_status(status_win, snapshot)
-        draw_todo(todo_win, snapshot)
-        draw_results(results_win, snapshot)
-        draw_log(log_win, snapshot)
-
-        for win in (status_win, todo_win, results_win, log_win):
+        for win in (layout.status_win, layout.todo_win, layout.results_win, layout.log_win):
             win.noutrefresh()
 
         now = dt.datetime.now().strftime("%H:%M:%S")
+        screen.move(height - 1, 0)
+        screen.clrtoeol()
         safe_addstr(screen, height - 1, 0, f"q quit | auto-refresh {REFRESH_SECONDS:.0f}s | {now}")
+        screen.noutrefresh()
         curses.doupdate()
         time.sleep(REFRESH_SECONDS)
 
