@@ -3,6 +3,10 @@
 `myautoresearch` is a reusable autoresearch harness meant to live inside an
 existing project as a subdirectory.
 
+It is inspired by [karpathy's autoresearch](https://github.com/karpathy/autoresearch)
+and wraps the same iterative idea with explicit context files, launch settings,
+session handoff, and lightweight process supervision.
+
 Typical layout:
 
 ```text
@@ -20,37 +24,38 @@ host-project/
 The harness keeps agent memory, run state, logs, and launch settings under
 `myautoresearch/`, while the agent works in the parent project directory.
 
+## Contents
+
+- [Get Started](#get-started)
+- [Files To Edit](#files-to-edit)
+- [State Files](#state-files)
+- [Supervisor And TUI](#supervisor-and-tui)
+- [Configuration](#configuration)
+- [Next Run](#next-run)
+- [Run Logic](#run-logic)
+
 ## Get Started
 
-From an existing project root, clone or copy this repository as
-`myautoresearch`:
+From an existing project root:
 
 ```bash
 git clone <repo-url> myautoresearch
 ```
 
-Fill in the short project contract:
+Edit the project-specific files yourself, or ask an agent to fill them in:
 
-```bash
-$EDITOR myautoresearch/project.md
-```
-
-At minimum, define the objective, protected files, the main validation or
-evaluation command, and the first useful task. Then inspect the launch command:
+- `myautoresearch/project.md`: objective, metric, commands, protected files.
+- `myautoresearch/todo.md`: first concrete task, if needed.
+- `myautoresearch/autoresearch.config.json`: paths or model defaults, if the
+  defaults are not enough.
 
 ```bash
 python3 myautoresearch/scripts/autoresearch_next.py --dry-run
-```
-
-If the command looks right, start one bounded agent session:
-
-```bash
 python3 myautoresearch/scripts/autoresearch_next.py
 ```
 
-The default `autoresearch.config.json` already points the agent at the parent
-project directory with `"workspace_dir": ".."`, so most projects only need
-`project.md` and possibly `todo.md` edited before the first run.
+Use `scripts/autoresearch_supervisor.py` instead when you want the loop to keep
+starting new sessions after the previous one finishes.
 
 ## Files To Edit
 
@@ -82,33 +87,19 @@ Do not normally edit `program.md`; it is the reusable workflow.
 - `autoresearch/sessions/`: `opencode run` session logs.
 - `autoresearch/tmp/`: disposable scratch files.
 
-## Usage
+## Supervisor And TUI
 
-From the parent project directory:
+The supervisor and TUI communicate through files under `myautoresearch/`. The
+TUI is not the process manager and does not need to stay open.
 
-```bash
-git clone <repo-url> myautoresearch
-```
-
-Then edit `myautoresearch/project.md` and run one agent session:
-
-```bash
-python3 myautoresearch/scripts/autoresearch_next.py
-```
-
-For unattended cycling:
+Run the supervisor in a persistent shell, `tmux`, or the background:
 
 ```bash
 python3 myautoresearch/scripts/autoresearch_supervisor.py
 ```
 
-To inspect without launching a run:
-
-```bash
-python3 myautoresearch/scripts/autoresearch_next.py --dry-run
-```
-
-To watch status and queue control events:
+Open the TUI only when you want to inspect status, tail recent logs, or queue a
+control event:
 
 ```bash
 python3 myautoresearch/scripts/autoresearch_tui.py
@@ -121,6 +112,9 @@ TUI keys:
 - `f`: queue a finish request for the next run.
 - `F`: queue a finish request and interrupt the recorded session or process.
 - `q`: quit the TUI.
+
+Closing the TUI does not stop the supervisor or any recorded project process.
+Force actions work by reading pids from `run_state.json` and sending a signal.
 
 ## Configuration
 
@@ -171,11 +165,35 @@ means the agent runs from the parent project directory.
 The scripts still fall back to the old `autoresearch_setting.json` name if
 `next_run.json` is missing, but new projects should use `next_run.json`.
 
-## Supervisor
+## Run Logic
 
-The supervisor reads `run_state.json`. If `active_process.pid` is alive and
-`last_status` is `running`, it waits. Otherwise it launches the next configured
-`opencode run` session and writes a log under `autoresearch/sessions/`.
+The harness is a small file-based loop around short `opencode run` sessions:
+
+```mermaid
+flowchart LR
+    A["Edit project.md / todo.md"] --> B["Launch one run"]
+    B --> C["Agent reads program, project, state, handoff, todo, plan, results"]
+    C --> D["Agent works in parent project"]
+    D --> E["Agent updates run_state, handoff, results, next_run"]
+    E --> F{"Continue?"}
+    F -->|"manual"| B
+    F -->|"supervisor"| G["Wait for active process if needed"]
+    G --> B
+    T["TUI"] --> E
+    T --> B
+```
+
+`autoresearch_next.py` launches exactly one configured session from
+`next_run.json`.
+
+`autoresearch_supervisor.py` repeats that launch step. Before each cycle, it
+reads `run_state.json`; if `active_process.pid` is alive and `last_status` is
+`running`, it waits. Otherwise it launches the next session and writes a log
+under `autoresearch/sessions/`.
+
+`autoresearch_tui.py` reads the same state files and log files. It can also
+append user control events to `autoresearch/inbox.jsonl`; the next launch folds
+those events into the agent prompt.
 
 Long-running project jobs should be recorded in this shape:
 
