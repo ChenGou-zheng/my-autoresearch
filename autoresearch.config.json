@@ -4,7 +4,16 @@
   "agent": {
     "command": "opencode",
     "default_model": "deepseekv4flash",
-    "default_reasoning_effort": "xhigh"
+    "default_reasoning_effort": "xhigh",
+    "available_models": {
+      "deepseekv4pro": "deepseek/deepseek-v4-pro",
+      "deepseek-v4-pro": "deepseek/deepseek-v4-pro",
+      "deepseek/deepseek-v4-pro": "deepseek/deepseek-v4-pro",
+      "deepseekv4flash": "deepseek/deepseek-v4-flash",
+      "deepseek-v4-flash": "deepseek/deepseek-v4-flash",
+      "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash"
+    },
+    "available_efforts": ["medium", "high", "xhigh", "max"]
   },
   "experiment": {
     "time_budget_minutes": 5,
@@ -21,6 +30,7 @@
     "handoff": "handoff.md",
     "journal": "experiment_journal.md",
     "results": "results.tsv",
-    "next_run": "next_run.json"
+    "next_run": "next_run.json",
+    "inbox": "autoresearch/inbox.jsonl"
   }
 }

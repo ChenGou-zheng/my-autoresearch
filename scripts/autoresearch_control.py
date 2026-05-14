@@ -9,10 +9,10 @@ import signal
 import uuid
 from pathlib import Path
 
-from autoresearch_common import HARNESS_DIR, write_json
+from autoresearch_common import inbox_path, write_json
 
 
-INBOX_PATH = HARNESS_DIR / "autoresearch" / "inbox.jsonl"
+INBOX_PATH = inbox_path()
 
 
 def now() -> str:

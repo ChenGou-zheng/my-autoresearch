@@ -24,6 +24,7 @@ DEFAULT_FILES = {
     "journal": "experiment_journal.md",
     "results": "results.tsv",
     "next_run": "next_run.json",
+    "inbox": "autoresearch/inbox.jsonl",
 }
 
 MODEL_ALIASES = {
@@ -75,6 +76,8 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict:
     state_dir = _resolve_path(config.get("state_dir", "."))
     files = DEFAULT_FILES | dict(config.get("files") or {})
     agent = dict(config.get("agent") or {})
+    agent["available_models"] = dict(agent.get("available_models") or MODEL_ALIASES)
+    agent["available_efforts"] = list(agent.get("available_efforts") or sorted(ALLOWED_VARIANTS))
     return {
         "workspace_dir": workspace_dir,
         "state_dir": state_dir,
@@ -99,20 +102,28 @@ def next_run_path(config: dict | None = None) -> Path:
     return LEGACY_SETTINGS
 
 
+def inbox_path(config: dict | None = None) -> Path:
+    return file_path("inbox", config)
+
+
 def workspace_dir(config: dict | None = None) -> Path:
     config = config or load_config()
     return config["workspace_dir"]
 
 
-def resolve_model(raw_model: str) -> str:
+def resolve_model(raw_model: str, config: dict | None = None) -> str:
     model = raw_model.strip()
-    return MODEL_ALIASES.get(model, model)
+    config = config or load_config()
+    aliases = dict((config.get("agent") or {}).get("available_models") or MODEL_ALIASES)
+    return aliases.get(model, model)
 
 
-def resolve_variant(raw_variant: str) -> str:
+def resolve_variant(raw_variant: str, config: dict | None = None) -> str:
     variant = raw_variant.strip()
-    if variant not in ALLOWED_VARIANTS:
-        allowed = ", ".join(sorted(ALLOWED_VARIANTS))
+    config = config or load_config()
+    allowed_variants = set((config.get("agent") or {}).get("available_efforts") or ALLOWED_VARIANTS)
+    if variant not in allowed_variants:
+        allowed = ", ".join(sorted(allowed_variants))
         raise SystemExit(f"unsupported variant {variant!r}; expected one of: {allowed}")
     return variant
 
@@ -130,8 +141,8 @@ def build_opencode_command(
     if not raw_variant:
         raise SystemExit("next_run.json is missing next_reasoning_effort")
 
-    model = resolve_model(str(raw_model))
-    variant = resolve_variant(str(raw_variant))
+    model = resolve_model(str(raw_model), config)
+    variant = resolve_variant(str(raw_variant), config)
     prompt = prompt_override or str(settings.get("prompt") or DEFAULT_PROMPT)
     agent = config.get("agent") or {}
     command = str(settings.get("agent_command") or agent.get("command") or "opencode")

@@ -14,8 +14,18 @@ from autoresearch_common import DEFAULT_CONFIG, HARNESS_DIR, file_path, load_con
 PLACEHOLDER_RE = re.compile(r"{{([A-Z0-9_]+)}}")
 
 
-def experiment_config(config_path: Path) -> dict:
+def markdown_list(values: list[str]) -> str:
+    return "\n".join(f"- `{value}`" for value in values)
+
+
+def markdown_model_list(models: dict[str, str]) -> str:
+    return "\n".join(f"- `{alias}` maps to `{model}`" for alias, model in models.items())
+
+
+def template_values(config_path: Path) -> dict:
     raw = load_json(config_path, default={})
+    config = load_config(config_path)
+    agent = config["agent"]
     experiment = dict(raw.get("experiment") or {})
     time_budget = experiment.get("time_budget_minutes", 5)
     timeout = experiment.get("timeout_minutes")
@@ -26,6 +36,10 @@ def experiment_config(config_path: Path) -> dict:
         "TIMEOUT_MINUTES": str(timeout),
         "BRANCH_MODE": str(experiment.get("branch_mode", "direction")),
         "BRANCH_CLEANUP": str(experiment.get("branch_cleanup", "suggest")),
+        "DEFAULT_MODEL": str(agent.get("default_model", "deepseekv4flash")),
+        "DEFAULT_REASONING_EFFORT": str(agent.get("default_reasoning_effort", "xhigh")),
+        "AVAILABLE_MODELS": markdown_model_list(dict(agent["available_models"])),
+        "AVAILABLE_EFFORTS": markdown_list(list(agent["available_efforts"])),
     }
 
 
@@ -78,7 +92,7 @@ def main() -> int:
     config = load_config(args.config)
     output = args.output or file_path("program", config)
     template_text = args.template.read_text(encoding="utf-8")
-    rendered = render_template(template_text, experiment_config(args.config))
+    rendered = render_template(template_text, template_values(args.config))
 
     if args.check:
         current = output.read_text(encoding="utf-8") if output.exists() else None

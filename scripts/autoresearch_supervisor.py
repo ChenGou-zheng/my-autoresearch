@@ -17,8 +17,8 @@ import sys
 import time
 
 from autoresearch_common import (
-    DEFAULT_STATE,
     build_opencode_command_with_controls,
+    file_path,
     format_command,
     load_config,
     load_json,
@@ -29,8 +29,8 @@ from autoresearch_common import (
 )
 
 
-STATE_PATH = DEFAULT_STATE
 CONFIG = load_config()
+STATE_PATH = file_path("state", CONFIG)
 SETTINGS_PATH = next_run_path(CONFIG)
 SESSION_LOG_DIR = HARNESS_DIR / "autoresearch" / "sessions"
 

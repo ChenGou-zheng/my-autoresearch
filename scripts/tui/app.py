@@ -7,13 +7,15 @@ import datetime as dt
 import time
 from dataclasses import dataclass
 
-from autoresearch_common import DEFAULT_STATE
+from autoresearch_common import file_path, load_config
 from autoresearch_control import append_event, interrupt_from_state
 from tui.render import draw_log, draw_results, draw_status, draw_todo, safe_addstr
 from tui.snapshot import build_snapshot
 
 
 REFRESH_SECONDS = 1.0
+CONFIG = load_config()
+STATE_PATH = file_path("state", CONFIG)
 
 
 @dataclass
@@ -93,7 +95,7 @@ def handle_control_input(screen: curses.window, key: int) -> str:
     if not force:
         return f"queued {event_type} event {event['id'][:8]}"
 
-    killed = interrupt_from_state(DEFAULT_STATE)
+    killed = interrupt_from_state(STATE_PATH)
     if killed:
         return f"queued force {event_type}; sent TERM to pid(s): {', '.join(map(str, killed))}"
     return f"queued force {event_type}; no live pid found"

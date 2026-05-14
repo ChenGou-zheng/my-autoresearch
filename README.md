@@ -154,7 +154,12 @@ Force actions work by reading pids from `run_state.json` and sending a signal.
   "agent": {
     "command": "opencode",
     "default_model": "deepseekv4flash",
-    "default_reasoning_effort": "xhigh"
+    "default_reasoning_effort": "xhigh",
+    "available_models": {
+      "deepseekv4pro": "deepseek/deepseek-v4-pro",
+      "deepseekv4flash": "deepseek/deepseek-v4-flash"
+    },
+    "available_efforts": ["medium", "high", "xhigh", "max"]
   },
   "experiment": {
     "time_budget_minutes": 5,
@@ -171,13 +176,19 @@ Force actions work by reading pids from `run_state.json` and sending a signal.
     "handoff": "handoff.md",
     "journal": "experiment_journal.md",
     "results": "results.tsv",
-    "next_run": "next_run.json"
+    "next_run": "next_run.json",
+    "inbox": "autoresearch/inbox.jsonl"
   }
 }
 ```
 
 `workspace_dir` is resolved relative to `myautoresearch/`. The default `..`
 means the agent runs from the parent project directory.
+
+`agent.available_models` maps short aliases to the model names passed to
+`opencode run -m`. Unknown model names are passed through as raw model names.
+`agent.available_efforts` controls which reasoning variants are accepted by the
+launcher and rendered into `program.md`.
 
 `experiment.time_budget_minutes` and `experiment.timeout_minutes` are rendered
 into `program.md` during init. `branch_mode: "direction"` means new research

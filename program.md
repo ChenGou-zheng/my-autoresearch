@@ -197,10 +197,18 @@ branches that are clearly discarded, merged, or superseded and documented.
 At the end of each session, write the next-session model choice to
 `next_run.json`.
 
+Default model: `deepseekv4flash`.
+
+Default reasoning effort: `xhigh`.
+
 Allowed model aliases:
 
-- `deepseekv4pro` maps to `deepseek/deepseek-v4-pro`.
-- `deepseekv4flash` maps to `deepseek/deepseek-v4-flash`.
+- `deepseekv4pro` maps to `deepseek/deepseek-v4-pro`
+- `deepseek-v4-pro` maps to `deepseek/deepseek-v4-pro`
+- `deepseek/deepseek-v4-pro` maps to `deepseek/deepseek-v4-pro`
+- `deepseekv4flash` maps to `deepseek/deepseek-v4-flash`
+- `deepseek-v4-flash` maps to `deepseek/deepseek-v4-flash`
+- `deepseek/deepseek-v4-flash` maps to `deepseek/deepseek-v4-flash`
 
 Allowed reasoning variants:
 
@@ -209,7 +217,7 @@ Allowed reasoning variants:
 - `xhigh`
 - `max`
 
-Use `deepseekv4pro` with `max` for:
+Use the strongest configured model and highest configured effort for:
 
 - Complex debugging.
 - Environment failures.
@@ -217,14 +225,14 @@ Use `deepseekv4pro` with `max` for:
 - Confusing metric behavior or repeated regressions.
 - Two consecutive crashes or blocked runs.
 
-Use `deepseekv4flash` with `xhigh` or `max` for:
+Use the default model with high effort for:
 
 - Running already planned experiments.
 - Implementing a clearly specified preprocessing, parameter, or pipeline change.
 - Producing artifacts and evaluating the primary metric.
 - Updating logs and synchronization files.
 
-Use `deepseekv4flash` with `medium` or `high` for:
+Use the default model with medium effort for:
 
 - Documentation cleanup.
 - Result summarization.
@@ -254,10 +262,7 @@ If the model alias is unknown, the runner may pass it through as a raw model
 name. Keep aliases consistent unless there is a clear reason to use a raw name.
 
 If the next session type is ambiguous, prefer the safer, higher-capability
-choice:
-
-- `deepseekv4pro + max` for debugging, regressions, or architecture changes.
-- `deepseekv4flash + xhigh` for concrete experiment execution.
+choice from the configured model and effort lists.
 
 ## The Experiment Loop
 
