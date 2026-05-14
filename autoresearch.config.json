@@ -6,6 +6,12 @@
     "default_model": "deepseekv4flash",
     "default_reasoning_effort": "xhigh"
   },
+  "experiment": {
+    "time_budget_minutes": 5,
+    "timeout_minutes": 10,
+    "branch_mode": "direction",
+    "branch_cleanup": "suggest"
+  },
   "files": {
     "program": "program.md",
     "project": "project.md",

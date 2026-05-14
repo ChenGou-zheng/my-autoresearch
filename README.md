@@ -28,6 +28,7 @@ The harness keeps agent memory, run state, logs, and launch settings under
 
 - [Get Started](#get-started)
 - [Files To Edit](#files-to-edit)
+- [Init Templates](#init-templates)
 - [State Files](#state-files)
 - [Supervisor And TUI](#supervisor-and-tui)
 - [Configuration](#configuration)
@@ -50,6 +51,7 @@ Edit the project-specific files yourself, or ask an agent to fill them in:
   defaults are not enough.
 
 ```bash
+python3 myautoresearch/scripts/init_harness.py
 python3 myautoresearch/scripts/autoresearch_next.py --dry-run
 python3 myautoresearch/scripts/autoresearch_next.py
 ```
@@ -69,7 +71,32 @@ For a new project, usually edit only these files:
 - `opencode.json`: permission rules, if the project has files that need hard
   protection.
 
-Do not normally edit `program.md`; it is the reusable workflow.
+Do not normally edit `program.md` directly. Edit `templates/program.md.in` for
+workflow text that should apply to future generated copies, or edit
+`autoresearch.config.json` for install-time options.
+
+## Init Templates
+
+`program.md` is generated from `templates/program.md.in` by
+`scripts/init_harness.py`. The template uses simple `{{NAME}}` placeholders and
+the script performs one-time text replacement during init/install. The generated
+`program.md` is ordinary Markdown; runtime agents should not see unresolved
+template placeholders.
+
+Run this after changing install-time options in `autoresearch.config.json`:
+
+```bash
+python3 myautoresearch/scripts/init_harness.py
+```
+
+Use check mode in CI or before committing template changes:
+
+```bash
+python3 myautoresearch/scripts/init_harness.py --check
+```
+
+Keep frequently changing project details in `project.md`. Keep machine-readable
+runtime settings in `autoresearch.config.json`.
 
 ## State Files
 
@@ -129,6 +156,12 @@ Force actions work by reading pids from `run_state.json` and sending a signal.
     "default_model": "deepseekv4flash",
     "default_reasoning_effort": "xhigh"
   },
+  "experiment": {
+    "time_budget_minutes": 5,
+    "timeout_minutes": 10,
+    "branch_mode": "direction",
+    "branch_cleanup": "suggest"
+  },
   "files": {
     "program": "program.md",
     "project": "project.md",
@@ -145,6 +178,13 @@ Force actions work by reading pids from `run_state.json` and sending a signal.
 
 `workspace_dir` is resolved relative to `myautoresearch/`. The default `..`
 means the agent runs from the parent project directory.
+
+`experiment.time_budget_minutes` and `experiment.timeout_minutes` are rendered
+into `program.md` during init. `branch_mode: "direction"` means new research
+directions should get their own `autoresearch/<tag>-<direction>` branch, while
+small follow-up tweaks stay on the current direction branch. `branch_cleanup:
+"suggest"` means agents should list cleanup candidates instead of deleting
+branches automatically.
 
 ## Next Run
 

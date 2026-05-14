@@ -132,9 +132,9 @@ deleting code or simplifying the pipeline is worth keeping.
 The first run should establish a baseline with the current project pipeline
 before changing behavior.
 
-Main experiment budget: 5 minutes.
+Main experiment budget: {{TIME_BUDGET_MINUTES}} minutes.
 
-Hard timeout: 10 minutes, unless `project.md` gives a more
+Hard timeout: {{TIMEOUT_MINUTES}} minutes, unless `project.md` gives a more
 specific timeout or stopping rule.
 
 Use the budget as the default comparison window. If a project needs staged
@@ -161,7 +161,7 @@ repeats or the root cause is unclear.
 
 ## Branch Strategy
 
-Default branch mode: `direction`.
+Default branch mode: `{{BRANCH_MODE}}`.
 
 Use branches to separate genuinely different research directions, not every
 tiny parameter tweak. A new architecture, pipeline, data path, optimizer family,
@@ -183,7 +183,7 @@ only changes that clearly belong to that failed experiment and are no longer
 useful. Keep logs, artifacts, and result history. Do not discard unrelated user
 changes.
 
-Branch cleanup mode: `suggest`.
+Branch cleanup mode: `{{BRANCH_CLEANUP}}`.
 
 When cleaning branches, only consider branches with the `autoresearch/` prefix.
 Never delete the current branch, any branch containing the current best result,
