@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import curses
 
-from autoresearch_common import PROJECT_DIR
+from autoresearch_common import HARNESS_DIR
 from tui.snapshot import TuiSnapshot
 
 
@@ -38,9 +38,8 @@ def draw_status(win: curses.window, snapshot: TuiSnapshot) -> None:
     draw_box(win, "Status")
     state = snapshot.state
     branch = state.get("current_branch", "na")
-    best_fid = state.get("best_official_fid", "na")
-    best_proxy = state.get("best_proxy_fid50k", "na")
-    checkpoint = state.get("best_checkpoint", "na")
+    best_metric = state.get("best_primary_metric", "na")
+    best_artifact = state.get("best_artifact", "na")
 
     safe_addstr(
         win,
@@ -48,10 +47,10 @@ def draw_status(win: curses.window, snapshot: TuiSnapshot) -> None:
         2,
         f"state: {snapshot.status}    pid: {snapshot.pid or 'none'}    branch: {branch}",
     )
-    safe_addstr(win, 2, 2, f"best official FID: {best_fid}    proxy: {best_proxy}")
-    safe_addstr(win, 3, 2, f"best checkpoint: {checkpoint}")
+    safe_addstr(win, 2, 2, f"best primary metric: {best_metric}")
+    safe_addstr(win, 3, 2, f"best artifact: {best_artifact}")
     if snapshot.latest_log:
-        rel = snapshot.latest_log.relative_to(PROJECT_DIR)
+        rel = snapshot.latest_log.relative_to(HARNESS_DIR)
         safe_addstr(win, 4, 2, f"latest log: {rel} ({snapshot.latest_log_age})")
     else:
         safe_addstr(win, 4, 2, "latest log: none")
@@ -73,7 +72,7 @@ def draw_results(win: curses.window, snapshot: TuiSnapshot) -> None:
         safe_addstr(win, 1, 2, "No results.tsv rows yet.")
         return
 
-    columns = ["commit", "official_fid", "proxy_fid50k", "status", "description"]
+    columns = ["commit", "primary_metric", "secondary_metric", "status", "description"]
     indexes = [table.header.index(col) for col in columns if col in table.header]
     selected = [table.header[index] for index in indexes]
     safe_addstr(win, 1, 2, " | ".join(selected), curses.A_BOLD)

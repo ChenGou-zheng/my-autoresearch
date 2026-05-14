@@ -4,7 +4,7 @@
 The agent can start long jobs in the background and then exit. This supervisor
 watches `run_state.json`; if a recorded active process is still alive, it waits.
 Once no active job is running, it launches the next `opencode run` using
-`autoresearch_setting.json`.
+`next_run.json`.
 """
 
 from __future__ import annotations
@@ -17,19 +17,22 @@ import sys
 import time
 
 from autoresearch_common import (
-    DEFAULT_SETTINGS,
     DEFAULT_STATE,
-    PROJECT_DIR,
     build_opencode_command_with_controls,
     format_command,
+    load_config,
     load_json,
+    next_run_path,
+    workspace_dir,
+    HARNESS_DIR,
     write_json,
 )
 
 
 STATE_PATH = DEFAULT_STATE
-SETTINGS_PATH = DEFAULT_SETTINGS
-SESSION_LOG_DIR = PROJECT_DIR / "autoresearch" / "sessions"
+CONFIG = load_config()
+SETTINGS_PATH = next_run_path(CONFIG)
+SESSION_LOG_DIR = HARNESS_DIR / "autoresearch" / "sessions"
 
 
 def now() -> str:
@@ -147,6 +150,7 @@ def launch_session(cycle: int, dry_run: bool, prompt_override: str | None) -> tu
         settings,
         prompt_override,
         consume_controls=not dry_run,
+        config=CONFIG,
     )
     print(f"[{now()}] launching cycle {cycle}: {format_command(cmd)}")
     if events:
@@ -164,7 +168,7 @@ def launch_session(cycle: int, dry_run: bool, prompt_override: str | None) -> tu
         log.flush()
         proc = subprocess.Popen(
             cmd,
-            cwd=PROJECT_DIR,
+            cwd=workspace_dir(CONFIG),
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,

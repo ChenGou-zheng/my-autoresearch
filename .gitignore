@@ -1,21 +1,13 @@
-meteorite
-.venv
-
-# Generated/training outputs
-data/
-generated_pictures/
-training-runs/
-evaluation_results/
-
-# StyleGAN2-ADA vendored source
-stylegan2-ada/.git/
-
-# Logs and compiled extensions
-*.log
-*.so
+.venv/
 __pycache__/
 *.pyc
+*.log
+
+# Runtime state produced by the autoresearch harness.
+autoresearch/inbox.jsonl
 autoresearch/tmp/*
+autoresearch/logs/*
+autoresearch/sessions/*
 !autoresearch/tmp/README.md
-!autoresearch/logs/train_centered256.log
-!autoresearch/sessions/session-20260512-150908-cycle1.log
+!autoresearch/logs/README.md
+!autoresearch/sessions/README.md

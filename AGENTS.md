@@ -1,10 +1,10 @@
-# Meteorite Generation
+# myautoresearch
 
-This project is to generate meteorite pictures and get a low FID score.
+This directory is a reusable autoresearch harness embedded inside a host
+project.
 
-# Files
+Read `program.md` for the generic workflow and `project.md` for the current
+host project's objective, commands, metrics, and protected files.
 
-- `meteorite/`: Raw images.
-- `evaluate_fid.py`: Official script to evaluate FID, don't modify.
-- `inception_v3_*`: Pretrained Inception V3 model to compute FID, don't modify.
-- `program.md`: An autoresearch settings file, do not need to read unless user attached.
+Do not treat this directory as the whole project unless
+`autoresearch.config.json` explicitly sets `workspace_dir` to `.`.

@@ -1,9 +1,0 @@
-{
-  "next_model": "deepseekv4flash",
-  "next_reasoning_effort": "xhigh",
-  "expected_work_type": "experiment",
-  "next_task": "Run a shorter checkpoint-bounded continuation from snapshot-001400 or another simple planned experiment, then evaluate official FID and update experiment_journal.md.",
-  "reason": "The long resumed training was manually stopped; next work should be a bounded experiment with better traceability.",
-  "prompt": "Read program.md first. Then read project.md, run_state.json, handoff.md, todo.md, plan.md, and results.tsv. Summarize current best result, active or blocked state, and next concrete action before editing or running long commands. Continue exactly one autoresearch loop iteration unless blocked.",
-  "updated_at": "2026-05-12T14:20:00+08:00"
-}

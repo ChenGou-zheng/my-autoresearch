@@ -9,15 +9,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from autoresearch_common import PROJECT_DIR
+from autoresearch_common import HARNESS_DIR, file_path, load_config
 from autoresearch_control import pending_events
 
 
-STATE_PATH = PROJECT_DIR / "run_state.json"
-TODO_PATH = PROJECT_DIR / "todo.md"
-RESULTS_PATH = PROJECT_DIR / "results.tsv"
-SESSION_DIR = PROJECT_DIR / "autoresearch" / "sessions"
-LOG_DIR = PROJECT_DIR / "autoresearch" / "logs"
+CONFIG = load_config()
+STATE_PATH = file_path("state", CONFIG)
+TODO_PATH = file_path("todo", CONFIG)
+RESULTS_PATH = file_path("results", CONFIG)
+SESSION_DIR = HARNESS_DIR / "autoresearch" / "sessions"
+LOG_DIR = HARNESS_DIR / "autoresearch" / "logs"
 
 
 @dataclass(frozen=True)

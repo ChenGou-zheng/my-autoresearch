@@ -9,10 +9,10 @@ import signal
 import uuid
 from pathlib import Path
 
-from autoresearch_common import PROJECT_DIR, write_json
+from autoresearch_common import HARNESS_DIR, write_json
 
 
-INBOX_PATH = PROJECT_DIR / "autoresearch" / "inbox.jsonl"
+INBOX_PATH = HARNESS_DIR / "autoresearch" / "inbox.jsonl"
 
 
 def now() -> str:
@@ -89,7 +89,7 @@ def render_events_for_prompt(events: list[dict]) -> str:
         lines.extend(
             [
                 "",
-                "At least one event is type `finish`: do a concise final synchronization pass, update handoff/run_state/autoresearch_setting/results or notes as appropriate, avoid launching new long experiments, and then exit cleanly.",
+                "At least one event is type `finish`: do a concise final synchronization pass, update handoff/run_state/next_run/results or notes as appropriate, avoid launching new long experiments, and then exit cleanly.",
             ]
         )
 

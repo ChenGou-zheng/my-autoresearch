@@ -1,0 +1,20 @@
+{
+  "workspace_dir": "..",
+  "state_dir": ".",
+  "agent": {
+    "command": "opencode",
+    "default_model": "deepseekv4flash",
+    "default_reasoning_effort": "xhigh"
+  },
+  "files": {
+    "program": "program.md",
+    "project": "project.md",
+    "state": "run_state.json",
+    "todo": "todo.md",
+    "plan": "plan.md",
+    "handoff": "handoff.md",
+    "journal": "experiment_journal.md",
+    "results": "results.tsv",
+    "next_run": "next_run.json"
+  }
+}

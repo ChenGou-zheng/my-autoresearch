@@ -1,17 +1,5 @@
 [project]
-name = "assignment3"
+name = "myautoresearch"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = [
-    "click",
-    "matplotlib",
-    "ninja",
-    "numpy",
-    "pillow",
-    "psutil",
-    "requests",
-    "scipy",
-    "torch",
-    "torchvision",
-    "tqdm",
-]
+dependencies = []
