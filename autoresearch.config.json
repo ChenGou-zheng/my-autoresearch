@@ -21,6 +21,11 @@
     "branch_mode": "direction",
     "branch_cleanup": "suggest"
   },
+  "supervisor": {
+    "opencode_timeout_seconds": 3600,
+    "active_process_stale_seconds": 7200,
+    "kill_grace_seconds": 15
+  },
   "files": {
     "program": "program.md",
     "project": "project.md",

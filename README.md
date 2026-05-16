@@ -167,6 +167,11 @@ Force actions work by reading pids from `run_state.json` and sending a signal.
     "branch_mode": "direction",
     "branch_cleanup": "suggest"
   },
+  "supervisor": {
+    "opencode_timeout_seconds": 3600,
+    "active_process_stale_seconds": 7200,
+    "kill_grace_seconds": 15
+  },
   "files": {
     "program": "program.md",
     "project": "project.md",
@@ -196,6 +201,12 @@ directions should get their own `autoresearch/<tag>-<direction>` branch, while
 small follow-up tweaks stay on the current direction branch. `branch_cleanup:
 "suggest"` means agents should list cleanup candidates instead of deleting
 branches automatically.
+
+`supervisor.opencode_timeout_seconds` limits each `opencode run` session that
+the supervisor starts. `supervisor.active_process_stale_seconds` limits how long
+a recorded project process may go without updating state before it is treated as
+stalled. In both cases, `supervisor.kill_grace_seconds` is the delay between
+`SIGTERM` and `SIGKILL`.
 
 ## Next Run
 

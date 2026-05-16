@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import select
 import subprocess
 import sys
 import time
@@ -23,6 +24,7 @@ from autoresearch_common import (
     load_json,
     next_run_path,
     process_status,
+    terminate_process_group,
     workspace_dir,
     HARNESS_DIR,
     write_json,
@@ -33,10 +35,40 @@ CONFIG = load_config()
 STATE_PATH = file_path("state", CONFIG)
 SETTINGS_PATH = next_run_path(CONFIG)
 SESSION_LOG_DIR = HARNESS_DIR / "autoresearch" / "sessions"
+SUPERVISOR_CONFIG = CONFIG.get("supervisor") or {}
 
 
 def now() -> str:
     return dt.datetime.now().astimezone().isoformat(timespec="seconds")
+
+
+def parse_time(value: object) -> dt.datetime | None:
+    if not value:
+        return None
+    text = str(value)
+    if text.endswith("Z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = dt.datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=dt.datetime.now().astimezone().tzinfo)
+    return parsed
+
+
+def seconds_since(value: object) -> float | None:
+    parsed = parse_time(value)
+    if parsed is None:
+        return None
+    return (dt.datetime.now().astimezone() - parsed).total_seconds()
+
+
+def supervisor_seconds(name: str) -> int:
+    try:
+        return int(SUPERVISOR_CONFIG.get(name, 0))
+    except (TypeError, ValueError):
+        return 0
 
 
 def describe_pid(pid: int) -> str:
@@ -45,7 +77,7 @@ def describe_pid(pid: int) -> str:
             ["ps", "-p", str(pid), "-o", "pid=,stat=,etime=,cmd="],
             text=True,
         ).strip()
-    except subprocess.CalledProcessError:
+    except (OSError, subprocess.CalledProcessError):
         return f"pid {pid}"
     return output or f"pid {pid}"
 
@@ -81,6 +113,24 @@ def mark_stale_process(state: dict, pid: int, kind: str) -> None:
     write_json(STATE_PATH, state)
 
 
+def mark_killed_process(state: dict, pid: int, kind: str, reason: str, kill_result: dict) -> None:
+    detected_at = now()
+    state["active"] = False
+    state["last_status"] = "timed_out"
+    state["last_updated"] = detected_at
+    state["killed_process"] = {
+        "pid": pid,
+        "kind": kind,
+        "reason": reason,
+        "detected_at": detected_at,
+        "kill_result": kill_result,
+    }
+    state["active_process"] = None
+    if str(state.get("training_pid")) == str(pid):
+        state["training_pid"] = None
+    write_json(STATE_PATH, state)
+
+
 def record_opencode_session(pid: int, cycle: int, log_path: str) -> None:
     state = load_json(STATE_PATH, default={})
     state["active"] = True
@@ -96,17 +146,24 @@ def record_opencode_session(pid: int, cycle: int, log_path: str) -> None:
     write_json(STATE_PATH, state)
 
 
-def clear_opencode_session(return_code: int) -> None:
+def clear_opencode_session(return_code: int, timed_out: bool = False, kill_result: dict | None = None) -> None:
     state = load_json(STATE_PATH, default={})
     session = state.get("opencode_session")
     if isinstance(session, dict):
         session["finished_at"] = now()
         session["return_code"] = return_code
+        if timed_out:
+            session["timed_out"] = True
+            session["kill_result"] = kill_result or {}
         state["last_opencode_session"] = session
+        if timed_out:
+            state["timed_out_opencode_session"] = session
     state["opencode_session"] = None
     if not state.get("active_process") and not state.get("training_pid"):
         state["active"] = False
-        if state.get("last_status") == "running":
+        if timed_out:
+            state["last_status"] = "timed_out"
+        elif state.get("last_status") == "running":
             state["last_status"] = "stopped"
     state["last_updated"] = now()
     write_json(STATE_PATH, state)
@@ -129,6 +186,32 @@ def wait_for_active_process(poll_seconds: int, dry_run: bool) -> bool:
             print(f"[{now()}] recorded {kind} pid {pid} {detail}")
             if not dry_run:
                 mark_stale_process(state, pid, kind)
+            return False
+
+        stale_seconds = supervisor_seconds("active_process_stale_seconds")
+        last_progress = None
+        active_process = state.get("active_process")
+        if isinstance(active_process, dict):
+            last_progress = active_process.get("last_updated") or active_process.get("started_at")
+        last_progress = last_progress or state.get("last_updated")
+        age = seconds_since(last_progress)
+        if stale_seconds > 0 and age is not None and age > stale_seconds:
+            print(
+                f"[{now()}] recorded {kind} pid {pid} has no state progress "
+                f"for {int(age)}s; terminating: {describe_pid(pid)}"
+            )
+            if not dry_run:
+                kill_result = terminate_process_group(
+                    pid,
+                    supervisor_seconds("kill_grace_seconds"),
+                )
+                mark_killed_process(
+                    state,
+                    pid,
+                    kind,
+                    f"no state progress for {int(age)}s",
+                    kill_result,
+                )
             return False
 
         print(f"[{now()}] waiting for {kind}: {describe_pid(pid)}")
@@ -170,11 +253,47 @@ def launch_session(cycle: int, dry_run: bool, prompt_override: str | None) -> tu
         )
         record_opencode_session(proc.pid, cycle, str(log_path))
         assert proc.stdout is not None
-        for line in proc.stdout:
-            print(line, end="")
-            log.write(line)
-        return_code = proc.wait()
-        clear_opencode_session(return_code)
+        timed_out = False
+        kill_result = None
+        timeout_seconds = supervisor_seconds("opencode_timeout_seconds")
+        started = time.monotonic()
+        while True:
+            if proc.poll() is not None:
+                remaining = proc.stdout.read()
+                if remaining:
+                    print(remaining, end="")
+                    log.write(remaining)
+                break
+
+            if timeout_seconds > 0 and time.monotonic() - started > timeout_seconds:
+                print(f"[{now()}] opencode session exceeded {timeout_seconds}s; terminating pid {proc.pid}")
+                timed_out = True
+                kill_result = terminate_process_group(
+                    proc.pid,
+                    supervisor_seconds("kill_grace_seconds"),
+                )
+                break
+
+            readable, _, _ = select.select([proc.stdout], [], [], 1)
+            if readable:
+                line = proc.stdout.readline()
+                if line:
+                    print(line, end="")
+                    log.write(line)
+        if timed_out:
+            try:
+                return_code = proc.wait(timeout=max(1, supervisor_seconds("kill_grace_seconds") + 2))
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                if kill_result is None:
+                    kill_result = {"pid": proc.pid}
+                kill_result["sent_kill"] = True
+                return_code = proc.wait(timeout=5)
+        else:
+            return_code = proc.wait()
+        if timed_out and kill_result is not None:
+            kill_result["terminated"] = True
+        clear_opencode_session(return_code, timed_out=timed_out, kill_result=kill_result)
         log.write(f"\n# finished_at: {now()}\n")
         log.write(f"# return_code: {return_code}\n")
 

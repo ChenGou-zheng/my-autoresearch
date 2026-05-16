@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import shlex
 import subprocess
+import time
 from pathlib import Path
 
 
@@ -38,6 +40,11 @@ MODEL_ALIASES = {
 }
 
 ALLOWED_VARIANTS = {"medium", "high", "xhigh", "max"}
+DEFAULT_SUPERVISOR = {
+    "opencode_timeout_seconds": 3600,
+    "active_process_stale_seconds": 7200,
+    "kill_grace_seconds": 15,
+}
 DEFAULT_PROMPT = (
     "Read myautoresearch/program.md first. Then read myautoresearch/project.md, "
     "myautoresearch/run_state.json, myautoresearch/handoff.md, "
@@ -115,6 +122,79 @@ def pid_alive(pid: int | None) -> bool:
     return process_status(pid) == "alive"
 
 
+def terminate_process_group(pid: int | None, grace_seconds: int = 15) -> dict:
+    """Terminate a process or process group, escalating to SIGKILL if needed."""
+    result = {
+        "pid": pid,
+        "sent_term": False,
+        "sent_kill": False,
+        "terminated": False,
+    }
+    if not pid or process_status(pid) != "alive":
+        result["terminated"] = True
+        return result
+
+    sent_any = False
+    try:
+        os.killpg(pid, signal.SIGTERM)
+        sent_any = True
+    except ProcessLookupError:
+        pass
+    except (PermissionError, OSError):
+        pass
+    try:
+        os.kill(pid, signal.SIGTERM)
+        sent_any = True
+    except ProcessLookupError:
+        result["terminated"] = True
+        return result
+    except (PermissionError, OSError):
+        pass
+    result["sent_term"] = sent_any
+    if not sent_any:
+        return result
+
+    deadline = time.monotonic() + max(0, grace_seconds)
+    while time.monotonic() < deadline:
+        if process_status(pid) != "alive":
+            result["terminated"] = True
+            return result
+        time.sleep(0.2)
+
+    if process_status(pid) != "alive":
+        result["terminated"] = True
+        return result
+
+    sent_any = False
+    try:
+        os.killpg(pid, signal.SIGKILL)
+        sent_any = True
+    except ProcessLookupError:
+        pass
+    except (PermissionError, OSError):
+        pass
+    try:
+        os.kill(pid, signal.SIGKILL)
+        sent_any = True
+    except ProcessLookupError:
+        result["terminated"] = True
+        return result
+    except (PermissionError, OSError):
+        pass
+    result["sent_kill"] = sent_any
+    if not sent_any:
+        return result
+
+    deadline = time.monotonic() + 2
+    while time.monotonic() < deadline:
+        if process_status(pid) != "alive":
+            result["terminated"] = True
+            return result
+        time.sleep(0.2)
+    result["terminated"] = process_status(pid) != "alive"
+    return result
+
+
 def load_config(path: Path = DEFAULT_CONFIG) -> dict:
     config = load_json(path, default={})
     workspace_dir = _resolve_path(config.get("workspace_dir", ".."))
@@ -123,11 +203,13 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict:
     agent = dict(config.get("agent") or {})
     agent["available_models"] = dict(agent.get("available_models") or MODEL_ALIASES)
     agent["available_efforts"] = list(agent.get("available_efforts") or sorted(ALLOWED_VARIANTS))
+    supervisor = DEFAULT_SUPERVISOR | dict(config.get("supervisor") or {})
     return {
         "workspace_dir": workspace_dir,
         "state_dir": state_dir,
         "files": files,
         "agent": agent,
+        "supervisor": supervisor,
     }
 
 

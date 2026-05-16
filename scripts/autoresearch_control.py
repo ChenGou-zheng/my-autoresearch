@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import os
-import signal
 import uuid
 from pathlib import Path
 
-from autoresearch_common import inbox_path, pid_alive, write_json
+from autoresearch_common import inbox_path, terminate_process_group, write_json
 
 
 INBOX_PATH = inbox_path()
@@ -116,23 +114,8 @@ def apply_pending_events(prompt: str, consume: bool = True) -> tuple[str, bool, 
     return combined_prompt, should_stop_after, events
 
 
-def kill_pid(pid: int | None) -> bool:
-    if not pid_alive(pid):
-        return False
-    assert pid is not None
-    try:
-        os.killpg(pid, signal.SIGTERM)
-        return True
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return False
-    except OSError:
-        try:
-            os.kill(pid, signal.SIGTERM)
-        except OSError:
-            return False
-        return True
+def kill_pid(pid: int | None) -> dict:
+    return terminate_process_group(pid)
 
 
 def active_pids(state: dict) -> list[int]:
@@ -161,13 +144,16 @@ def interrupt_from_state(state_path: Path) -> list[int]:
 
     state = load_json(state_path, default={})
     killed: list[int] = []
+    kill_results: list[dict] = []
     for pid in active_pids(state):
-        if kill_pid(pid):
+        result = kill_pid(pid)
+        if result.get("sent_term") or result.get("sent_kill") or result.get("terminated"):
             killed.append(pid)
+            kill_results.append(result)
     if killed:
         state["last_status"] = "interrupted"
         state["last_updated"] = now()
-        state["interrupted_by_user"] = {"pids": killed, "at": now()}
+        state["interrupted_by_user"] = {"pids": killed, "at": now(), "kill_results": kill_results}
         state["opencode_session"] = None
         active_process = state.get("active_process")
         if isinstance(active_process, dict) and _as_pid(active_process.get("pid")) in killed:
