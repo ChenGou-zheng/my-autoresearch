@@ -17,12 +17,18 @@ host-project/
     autoresearch.config.json
     next_run.json
     scripts/
+  autoresearch_output/
+    run_state.json
+    results.tsv
+    autoresearch/
   src/
   ...
 ```
 
-The harness keeps agent memory, run state, logs, and launch settings under
-`myautoresearch/`, while the agent works in the parent project directory.
+The harness code and stable project contract stay under `myautoresearch/`.
+Runtime state, logs, and result history can live in a configured output
+directory such as `autoresearch_output/`, while the agent works in the parent
+project directory.
 
 ## Contents
 
@@ -46,7 +52,7 @@ git clone <repo-url> myautoresearch
 Edit the project-specific files yourself, or ask an agent to fill them in:
 
 - `myautoresearch/project.md`: objective, metric, commands, protected files.
-- `myautoresearch/todo.md`: first concrete task, if needed.
+- The configured output `todo.md`: first concrete task, if needed.
 - `myautoresearch/autoresearch.config.json`: paths or model defaults, if the
   defaults are not enough.
 
@@ -65,7 +71,8 @@ For a new project, usually edit only these files:
 
 - `project.md`: project objective, metric, commands, protected files, and output
   paths.
-- `todo.md`: the first concrete task, if the default task is not enough.
+- The configured output `todo.md`: the first concrete task, if the default task
+  is not enough.
 - `autoresearch.config.json`: workspace path, file names, or default model
   settings.
 - `opencode.json`: permission rules, if the project has files that need hard
@@ -102,22 +109,22 @@ runtime settings in `autoresearch.config.json`.
 
 - `program.md`: generic autoresearch process and operating rules.
 - `project.md`: project-specific contract.
-- `next_run.json`: model, reasoning effort, prompt, and task for the next agent
-  session.
-- `run_state.json`: machine-readable current state.
-- `handoff.md`: short human-readable handoff.
-- `plan.md`: medium-term strategy.
-- `todo.md`: short-term task queue.
-- `experiment_journal.md`: detailed attempt history.
-- `results.tsv`: compact result table.
-- `autoresearch/logs/`: project command logs.
-- `autoresearch/sessions/`: `opencode run` session logs.
-- `autoresearch/tmp/`: disposable scratch files.
+- Configured output `next_run.json`: model, reasoning effort, prompt, and task
+  for the next agent session.
+- Configured output `run_state.json`: machine-readable current state.
+- Configured output `handoff.md`: short human-readable handoff.
+- Configured output `plan.md`: medium-term strategy.
+- Configured output `todo.md`: short-term task queue.
+- Configured output `experiment_journal.md`: detailed attempt history.
+- Configured output `results.tsv`: compact result table.
+- Configured output `autoresearch/logs/`: project command logs.
+- Configured output `autoresearch/sessions/`: `opencode run` session logs.
+- Configured output `autoresearch/tmp/`: disposable scratch files.
 
 ## Supervisor And TUI
 
-The supervisor and TUI communicate through files under `myautoresearch/`. The
-TUI is not the process manager and does not need to stay open.
+The supervisor and TUI communicate through the configured output files. The TUI
+is not the process manager and does not need to stay open.
 
 Run the supervisor in a persistent shell, `tmux`, or the background:
 
@@ -151,6 +158,7 @@ Force actions work by reading pids from `run_state.json` and sending a signal.
 {
   "workspace_dir": "..",
   "state_dir": ".",
+  "output_dir": "../autoresearch_output",
   "agent": {
     "command": "opencode",
     "default_model": "deepseekv4flash",
@@ -190,6 +198,15 @@ Force actions work by reading pids from `run_state.json` and sending a signal.
 `workspace_dir` is resolved relative to `myautoresearch/`. The default `..`
 means the agent runs from the parent project directory.
 
+`output_dir` is resolved relative to `myautoresearch/` and is the preferred
+base for runtime files: `run_state.json`, `handoff.md`, `todo.md`, `plan.md`,
+`experiment_journal.md`, `results.tsv`, `next_run.json`,
+`autoresearch/inbox.jsonl`, and the `autoresearch/logs`,
+`autoresearch/sessions`, and `autoresearch/tmp` directories. Set it to
+`../autoresearch_output` when the host repository should track useful
+autoresearch output. `state_dir` remains as a legacy fallback for older configs
+that do not set `output_dir`.
+
 `agent.available_models` maps short aliases to the model names passed to
 `opencode run -m`. Unknown model names are passed through as raw model names.
 `agent.available_efforts` controls which reasoning variants are accepted by the
@@ -210,7 +227,8 @@ stalled. In both cases, `supervisor.kill_grace_seconds` is the delay between
 
 ## Next Run
 
-`next_run.json` is the launch plan for the next agent session:
+The configured output `next_run.json` is the launch plan for the next agent
+session:
 
 ```json
 {
@@ -225,7 +243,8 @@ stalled. In both cases, `supervisor.kill_grace_seconds` is the delay between
 ```
 
 The scripts still fall back to the old `autoresearch_setting.json` name if
-`next_run.json` is missing, but new projects should use `next_run.json`.
+`next_run.json` is missing, but new projects should use the configured output
+`next_run.json`.
 
 ## Run Logic
 
@@ -233,10 +252,10 @@ The harness is a small file-based loop around short `opencode run` sessions:
 
 ```mermaid
 flowchart LR
-    A["Edit project.md / todo.md"] --> B["Launch one run"]
-    B --> C["Agent reads program, project, state, handoff, todo, plan, results"]
+    A["Edit project.md / output todo.md"] --> B["Launch one run"]
+    B --> C["Agent reads program, project, configured output files"]
     C --> D["Agent works in parent project"]
-    D --> E["Agent updates run_state, handoff, results, next_run"]
+    D --> E["Agent updates configured output files"]
     E --> F{"Continue?"}
     F -->|"manual"| B
     F -->|"supervisor"| G["Wait for active process if needed"]
@@ -245,17 +264,17 @@ flowchart LR
     T --> B
 ```
 
-`autoresearch_next.py` launches exactly one configured session from
-`next_run.json`.
+`autoresearch_next.py` launches exactly one configured session from the
+configured output `next_run.json`.
 
 `autoresearch_supervisor.py` repeats that launch step. Before each cycle, it
 reads `run_state.json`; if `active_process.pid` is alive and `last_status` is
 `running`, it waits. Otherwise it launches the next session and writes a log
-under `autoresearch/sessions/`.
+under the configured output `autoresearch/sessions/`.
 
 `autoresearch_tui.py` reads the same state files and log files. It can also
-append user control events to `autoresearch/inbox.jsonl`; the next launch folds
-those events into the agent prompt.
+append user control events to the configured output `autoresearch/inbox.jsonl`;
+the next launch folds those events into the agent prompt.
 
 Long-running project jobs should be recorded in this shape:
 
@@ -266,7 +285,7 @@ Long-running project jobs should be recorded in this shape:
   "active_process": {
     "pid": 12345,
     "kind": "training",
-    "log_path": "myautoresearch/autoresearch/logs/run.log",
+    "log_path": "autoresearch_output/autoresearch/logs/run.log",
     "expected_output": "path/to/artifact",
     "started_at": "2026-05-14T00:00:00+08:00"
   }

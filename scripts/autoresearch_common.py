@@ -17,6 +17,12 @@ DEFAULT_NEXT_RUN = HARNESS_DIR / "next_run.json"
 LEGACY_SETTINGS = HARNESS_DIR / "autoresearch_setting.json"
 DEFAULT_STATE = HARNESS_DIR / "run_state.json"
 DEFAULT_INBOX = HARNESS_DIR / "autoresearch" / "inbox.jsonl"
+HARNESS_FILE_KEYS = {"program", "project"}
+RUNTIME_DIRS = {
+    "logs": "autoresearch/logs",
+    "sessions": "autoresearch/sessions",
+    "tmp": "autoresearch/tmp",
+}
 DEFAULT_FILES = {
     "program": "program.md",
     "project": "project.md",
@@ -47,12 +53,11 @@ DEFAULT_SUPERVISOR = {
 }
 DEFAULT_PROMPT = (
     "Read myautoresearch/program.md first. Then read myautoresearch/project.md, "
-    "myautoresearch/run_state.json, myautoresearch/handoff.md, "
-    "myautoresearch/todo.md, myautoresearch/plan.md, and "
-    "myautoresearch/results.tsv. Treat the parent directory as the project "
-    "workspace. Summarize current best result, active or blocked state, and next "
-    "concrete action before editing or running long commands. Continue exactly "
-    "one autoresearch loop iteration unless blocked."
+    "then read the configured output files: run_state.json, handoff.md, todo.md, "
+    "plan.md, and results.tsv. Treat the configured workspace as the project "
+    "workspace. Summarize current best result, active or blocked state, and "
+    "next concrete action before editing or running long commands. Continue "
+    "exactly one autoresearch loop iteration unless blocked."
 )
 
 
@@ -75,6 +80,7 @@ def load_json(path: Path, default: dict | None = None) -> dict:
 
 
 def write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
@@ -199,6 +205,7 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict:
     config = load_json(path, default={})
     workspace_dir = _resolve_path(config.get("workspace_dir", ".."))
     state_dir = _resolve_path(config.get("state_dir", "."))
+    output_dir = _resolve_path(config.get("output_dir", config.get("state_dir", ".")))
     files = DEFAULT_FILES | dict(config.get("files") or {})
     agent = dict(config.get("agent") or {})
     agent["available_models"] = dict(agent.get("available_models") or MODEL_ALIASES)
@@ -207,6 +214,7 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict:
     return {
         "workspace_dir": workspace_dir,
         "state_dir": state_dir,
+        "output_dir": output_dir,
         "files": files,
         "agent": agent,
         "supervisor": supervisor,
@@ -218,7 +226,15 @@ def file_path(name: str, config: dict | None = None) -> Path:
     files = config["files"]
     if name not in files:
         raise SystemExit(f"unknown configured file key: {name}")
-    return _resolve_path(files[name], config["state_dir"])
+    base = HARNESS_DIR if name in HARNESS_FILE_KEYS else config["output_dir"]
+    return _resolve_path(files[name], base)
+
+
+def runtime_dir(name: str, config: dict | None = None) -> Path:
+    config = config or load_config()
+    if name not in RUNTIME_DIRS:
+        raise SystemExit(f"unknown runtime directory key: {name}")
+    return _resolve_path(RUNTIME_DIRS[name], config["output_dir"])
 
 
 def next_run_path(config: dict | None = None) -> Path:

@@ -4,8 +4,10 @@ from __future__ import annotations
 
 import curses
 
-from autoresearch_common import HARNESS_DIR
+from autoresearch_common import load_config
 from tui.snapshot import TuiSnapshot
+
+CONFIG = load_config()
 
 
 def clip(text: str, width: int) -> str:
@@ -50,7 +52,10 @@ def draw_status(win: curses.window, snapshot: TuiSnapshot) -> None:
     safe_addstr(win, 2, 2, f"best primary metric: {best_metric}")
     safe_addstr(win, 3, 2, f"best artifact: {best_artifact}")
     if snapshot.latest_log:
-        rel = snapshot.latest_log.relative_to(HARNESS_DIR)
+        try:
+            rel = snapshot.latest_log.relative_to(CONFIG["output_dir"])
+        except ValueError:
+            rel = snapshot.latest_log
         safe_addstr(win, 4, 2, f"latest log: {rel} ({snapshot.latest_log_age})")
     else:
         safe_addstr(win, 4, 2, "latest log: none")

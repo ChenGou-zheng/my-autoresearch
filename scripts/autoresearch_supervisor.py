@@ -24,9 +24,9 @@ from autoresearch_common import (
     load_json,
     next_run_path,
     process_status,
+    runtime_dir,
     terminate_process_group,
     workspace_dir,
-    HARNESS_DIR,
     write_json,
 )
 
@@ -34,7 +34,7 @@ from autoresearch_common import (
 CONFIG = load_config()
 STATE_PATH = file_path("state", CONFIG)
 SETTINGS_PATH = next_run_path(CONFIG)
-SESSION_LOG_DIR = HARNESS_DIR / "autoresearch" / "sessions"
+SESSION_LOG_DIR = runtime_dir("sessions", CONFIG)
 SUPERVISOR_CONFIG = CONFIG.get("supervisor") or {}
 
 

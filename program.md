@@ -8,9 +8,9 @@ resolved once during init/install; do not leave `{{...}}` placeholders in the
 generated `program.md`.
 
 This harness usually lives in a `myautoresearch/` subdirectory inside a host
-project. Paths in this file are relative to the harness directory unless stated
-otherwise. Treat the workspace configured in `autoresearch.config.json` as the
-project workspace.
+project. Treat the workspace configured in `autoresearch.config.json` as the
+project workspace. Runtime synchronization files and logs live under the
+configured output directory; stable harness files stay under `myautoresearch/`.
 
 ## Runtime Contract
 
@@ -21,13 +21,14 @@ request.
 
 Every new agent session must begin by reading these files, in this order:
 
-1. `program.md` - long-term operating rules.
-2. `project.md` - current project objective, constraints, metrics, and commands.
-3. `run_state.json` - machine-readable current state.
-4. `handoff.md` - previous agent's handoff guides.
-5. `todo.md` - short-term task queue.
-6. `plan.md` - medium-term experiment plan.
-7. `results.tsv` - structured experiment history, if present.
+1. `myautoresearch/program.md` - long-term operating rules.
+2. `myautoresearch/project.md` - current project objective, constraints,
+   metrics, and commands.
+3. Configured `run_state.json` - machine-readable current state.
+4. Configured `handoff.md` - previous agent's handoff guides.
+5. Configured `todo.md` - short-term task queue.
+6. Configured `plan.md` - medium-term experiment plan.
+7. Configured `results.tsv` - structured experiment history, if present.
 8. Relevant recent logs only as needed.
 
 Before editing or running long commands, summarize the current best result,
@@ -59,6 +60,10 @@ These files are the shared memory:
 - `next_run.json`: model, reasoning, prompt, and task for the next session.
 - `results.tsv`: tab-separated experiment results. Keep untracked if possible.
 
+These synchronization files are resolved through `autoresearch.config.json`.
+When `output_dir` is set, write the configured runtime files under that output
+directory rather than directly under `myautoresearch/`.
+
 At the end of every session, update all relevant synchronization files before
 stopping. If no experiment was run, still update `handoff.md`,
 `run_state.json`, and `next_run.json` with the current status.
@@ -73,14 +78,16 @@ file unless the user explicitly asks for cleanup.
 ## File Layout
 
 Keep the repository root readable. Root-level files should be stable project
-files, synchronization files, or assignment-required paths.
+files, the configured output directory, or assignment-required paths.
 
 Preferred layout for new autoresearch artifacts:
 
-- `autoresearch/logs/` - command logs from training, evaluation, rendering,
-  crawling, simulations, or other project-specific jobs.
-- `autoresearch/sessions/` - logs from each `opencode run` session.
-- `autoresearch/tmp/` - temporary notes or scratch outputs that can be deleted.
+- `<output_dir>/autoresearch/logs/` - command logs from training, evaluation,
+  rendering, crawling, simulations, or other project-specific jobs.
+- `<output_dir>/autoresearch/sessions/` - logs from each `opencode run`
+  session.
+- `<output_dir>/autoresearch/tmp/` - temporary notes or scratch outputs that
+  can be deleted.
 - Project-specific output directories documented in `project.md`.
 
 Avoid adding new root-level logs unless the project requires them. Legacy root
@@ -247,7 +254,7 @@ Recommended JSON shape:
   "expected_work_type": "experiment",
   "next_task": "Run the next planned comparison and evaluate the primary metric.",
   "reason": "The next task is an already specified experiment.",
-  "prompt": "Read myautoresearch/program.md first. Then read myautoresearch/project.md, myautoresearch/run_state.json, myautoresearch/handoff.md, myautoresearch/todo.md, myautoresearch/plan.md, and myautoresearch/results.tsv. Summarize current best result, active or blocked state, and next concrete action before editing or running long commands. Continue exactly one autoresearch loop iteration unless blocked.",
+  "prompt": "Read myautoresearch/program.md first. Then read myautoresearch/project.md, then read the configured output files: run_state.json, handoff.md, todo.md, plan.md, and results.tsv. Summarize current best result, active or blocked state, and next concrete action before editing or running long commands. Continue exactly one autoresearch loop iteration unless blocked.",
   "updated_at": "2026-05-14T00:00:00+08:00"
 }
 ```
@@ -309,7 +316,7 @@ Preferred shape:
   "active_process": {
     "pid": 12345,
     "kind": "training",
-    "log_path": "autoresearch/logs/example.log",
+    "log_path": "<output_dir>/autoresearch/logs/example.log",
     "expected_output": "path/to/expected/artifact",
     "started_at": "2026-05-14T00:00:00+08:00"
   }

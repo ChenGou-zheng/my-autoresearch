@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from autoresearch_common import HARNESS_DIR, file_path, load_config, pid_alive
+from autoresearch_common import file_path, load_config, pid_alive, runtime_dir
 from autoresearch_control import pending_events
 
 
@@ -16,8 +16,8 @@ CONFIG = load_config()
 STATE_PATH = file_path("state", CONFIG)
 TODO_PATH = file_path("todo", CONFIG)
 RESULTS_PATH = file_path("results", CONFIG)
-SESSION_DIR = HARNESS_DIR / "autoresearch" / "sessions"
-LOG_DIR = HARNESS_DIR / "autoresearch" / "logs"
+SESSION_DIR = runtime_dir("sessions", CONFIG)
+LOG_DIR = runtime_dir("logs", CONFIG)
 
 
 @dataclass(frozen=True)

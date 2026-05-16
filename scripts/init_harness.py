@@ -101,6 +101,7 @@ def main() -> int:
             return 1
         return 0
 
+    output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(rendered, encoding="utf-8")
     print(f"rendered {args.template} -> {output}")
     return 0
