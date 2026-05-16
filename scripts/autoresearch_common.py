@@ -76,11 +76,16 @@ def process_status(pid: int | None) -> str:
     if not pid or pid <= 0:
         return "dead"
 
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return "dead"
+    except PermissionError:
+        return "alive"
+
     proc_stat = Path(f"/proc/{pid}/stat")
     try:
         stat_text = proc_stat.read_text(encoding="utf-8")
-    except FileNotFoundError:
-        return "dead"
     except OSError:
         stat_text = ""
 
@@ -93,13 +98,6 @@ def process_status(pid: int | None) -> str:
             return "zombie"
         if state:
             return "alive"
-
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return "dead"
-    except PermissionError:
-        return "alive"
 
     try:
         stat = subprocess.check_output(
