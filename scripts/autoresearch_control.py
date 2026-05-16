@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import datetime as dt
 import json
-import os
 import signal
 import uuid
 from pathlib import Path
 
-from autoresearch_common import inbox_path, write_json
+from autoresearch_common import inbox_path, pid_alive, write_json
 
 
 INBOX_PATH = inbox_path()
@@ -114,18 +113,6 @@ def apply_pending_events(prompt: str, consume: bool = True) -> tuple[str, bool, 
     if consume:
         mark_consumed(events)
     return combined_prompt, should_stop_after, events
-
-
-def pid_alive(pid: int | None) -> bool:
-    if not pid:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
 
 
 def kill_pid(pid: int | None) -> bool:

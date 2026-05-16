@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import os
 import subprocess
 import sys
 import time
@@ -23,6 +22,7 @@ from autoresearch_common import (
     load_config,
     load_json,
     next_run_path,
+    process_status,
     workspace_dir,
     HARNESS_DIR,
     write_json,
@@ -37,18 +37,6 @@ SESSION_LOG_DIR = HARNESS_DIR / "autoresearch" / "sessions"
 
 def now() -> str:
     return dt.datetime.now().astimezone().isoformat(timespec="seconds")
-
-
-def pid_alive(pid: int) -> bool:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
 
 
 def describe_pid(pid: int) -> str:
@@ -132,8 +120,13 @@ def wait_for_active_process(poll_seconds: int, dry_run: bool) -> bool:
         if not pid or status != "running":
             return False
 
-        if not pid_alive(pid):
-            print(f"[{now()}] recorded {kind} pid {pid} is no longer running")
+        status = process_status(pid)
+        if status != "alive":
+            if status == "zombie":
+                detail = f"is a zombie and cannot make progress: {describe_pid(pid)}"
+            else:
+                detail = "is no longer running"
+            print(f"[{now()}] recorded {kind} pid {pid} {detail}")
             if not dry_run:
                 mark_stale_process(state, pid, kind)
             return False

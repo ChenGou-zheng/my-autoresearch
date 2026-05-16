@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 import json
-import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from autoresearch_common import HARNESS_DIR, file_path, load_config
+from autoresearch_common import HARNESS_DIR, file_path, load_config, pid_alive
 from autoresearch_control import pending_events
 
 
@@ -70,18 +69,6 @@ def newest_file(paths: Iterable[Path]) -> Path | None:
 def newest_log() -> Path | None:
     candidates = list(SESSION_DIR.glob("*.log")) + list(LOG_DIR.rglob("*.log"))
     return newest_file(candidates)
-
-
-def pid_alive(pid: int | None) -> bool:
-    if not pid:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
 
 
 def active_pid(state: dict) -> int | None:

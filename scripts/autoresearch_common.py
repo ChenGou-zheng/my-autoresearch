@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import shlex
+import subprocess
 from pathlib import Path
 
 
@@ -68,6 +69,52 @@ def load_json(path: Path, default: dict | None = None) -> dict:
 
 def write_json(path: Path, data: dict) -> None:
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def process_status(pid: int | None) -> str:
+    """Return dead, alive, or zombie for a local process id."""
+    if not pid or pid <= 0:
+        return "dead"
+
+    proc_stat = Path(f"/proc/{pid}/stat")
+    try:
+        stat_text = proc_stat.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return "dead"
+    except OSError:
+        stat_text = ""
+
+    if stat_text:
+        try:
+            state = stat_text.rsplit(") ", 1)[1].split()[0]
+        except IndexError:
+            state = ""
+        if state == "Z":
+            return "zombie"
+        if state:
+            return "alive"
+
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return "dead"
+    except PermissionError:
+        return "alive"
+
+    try:
+        stat = subprocess.check_output(
+            ["ps", "-p", str(pid), "-o", "stat="],
+            text=True,
+        ).strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "alive"
+    if stat.startswith("Z"):
+        return "zombie"
+    return "alive" if stat else "dead"
+
+
+def pid_alive(pid: int | None) -> bool:
+    return process_status(pid) == "alive"
 
 
 def load_config(path: Path = DEFAULT_CONFIG) -> dict:
