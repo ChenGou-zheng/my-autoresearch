@@ -10,11 +10,13 @@ Once no active job is running, it launches the next `opencode run` using
 from __future__ import annotations
 
 import argparse
+import csv
 import datetime as dt
 import select
 import subprocess
 import sys
 import time
+from pathlib import Path
 
 from autoresearch_common import (
     build_opencode_command_with_controls,
@@ -29,6 +31,7 @@ from autoresearch_common import (
     workspace_dir,
     write_json,
 )
+from autoresearch_control import append_event, pending_events
 
 
 CONFIG = load_config()
@@ -128,6 +131,137 @@ def mark_killed_process(state: dict, pid: int, kind: str, reason: str, kill_resu
     state["active_process"] = None
     if str(state.get("training_pid")) == str(pid):
         state["training_pid"] = None
+    write_json(STATE_PATH, state)
+
+
+def parse_metric(raw: object) -> float | None:
+    try:
+        text = str(raw).strip()
+        if not text or text.lower() in {"nan", "none", "null"}:
+            return None
+        return float(text)
+    except (TypeError, ValueError):
+        return None
+
+
+def normalized_target(termination: dict) -> float | None:
+    target = parse_metric(termination.get("target"))
+    if target is None:
+        return None
+    if str(termination.get("scale") or "unit").lower() == "percent":
+        return target / 100.0
+    return target
+
+
+def termination_results_path(termination: dict) -> Path:
+    key = str(termination.get("results_file") or "results")
+    if key in CONFIG["files"]:
+        return file_path(key, CONFIG)
+    path = Path(key).expanduser()
+    if not path.is_absolute():
+        path = CONFIG["state_dir"] / path
+    return path.resolve()
+
+
+def best_result_metric(termination: dict) -> tuple[float | None, dict | None]:
+    path = termination_results_path(termination)
+    if not path.exists():
+        return None, None
+
+    metric_column = str(termination.get("metric_column") or "primary_metric")
+    eligible = set(termination.get("eligible_statuses") or ["keep", "continue"])
+    best_metric: float | None = None
+    best_row: dict | None = None
+    with path.open("r", encoding="utf-8", newline="") as handle:
+        reader = csv.DictReader(handle, delimiter="\t")
+        if not reader.fieldnames or metric_column not in reader.fieldnames:
+            return None, None
+        for row in reader:
+            status = str(row.get("status") or "").strip()
+            if eligible and status not in eligible:
+                continue
+            metric = parse_metric(row.get(metric_column))
+            if metric is None:
+                continue
+            if best_metric is None or metric > best_metric:
+                best_metric = metric
+                best_row = row
+    return best_metric, best_row
+
+
+def queue_target_finish_if_needed(dry_run: bool) -> bool:
+    termination = CONFIG.get("termination") or {}
+    mode = str(termination.get("mode") or "manual").lower()
+    if mode in {"manual", "off", "never"}:
+        return False
+
+    target = normalized_target(termination)
+    if target is None:
+        return False
+
+    state = load_json(STATE_PATH, default={})
+    recorded = state.get("termination")
+    if isinstance(recorded, dict) and recorded.get("finalization_started"):
+        print(f"[{now()}] target finalization already started; stopping supervisor loop")
+        return True
+
+    best_metric, best_row = best_result_metric(termination)
+    if best_metric is None or best_metric < target:
+        return False
+
+    message = (
+        f"Target reached: {termination.get('metric_column', 'primary_metric')} "
+        f"{best_metric:g} >= {target:g}. Do final synchronization and stop."
+    )
+    if termination.get("finalize_with_agent") is False:
+        print(f"[{now()}] target reached; stopping without final agent session: {message}")
+        if not dry_run:
+            state["termination"] = {
+                "target_reached": True,
+                "finalization_started": False,
+                "finalization_completed": True,
+                "best_result": best_metric,
+                "target": target,
+                "source": str(termination_results_path(termination)),
+                "matched_row": best_row,
+                "reason": message,
+                "completed_at": now(),
+            }
+            write_json(STATE_PATH, state)
+        return True
+
+    if any(event.get("type") == "finish" and not event.get("consumed_at") for event in pending_events()):
+        print(f"[{now()}] target reached; pending finish event already exists")
+    elif dry_run:
+        print(f"[{now()}] target reached; would queue finish event: {message}")
+    else:
+        event = append_event("finish", message, force=False)
+        print(f"[{now()}] target reached; queued finish event {event['id'][:8]}")
+
+    if not dry_run:
+        state["termination"] = {
+            "target_reached": True,
+            "finalization_started": True,
+            "finalization_completed": False,
+            "best_result": best_metric,
+            "target": target,
+            "source": str(termination_results_path(termination)),
+            "matched_row": best_row,
+            "reason": message,
+            "updated_at": now(),
+        }
+        write_json(STATE_PATH, state)
+    return False
+
+
+def mark_target_finalization_completed() -> None:
+    state = load_json(STATE_PATH, default={})
+    termination = state.get("termination")
+    if not isinstance(termination, dict) or not termination.get("finalization_started"):
+        return
+    termination["finalization_completed"] = True
+    termination["completed_at"] = now()
+    state["termination"] = termination
     write_json(STATE_PATH, state)
 
 
@@ -330,12 +464,15 @@ def main() -> int:
         waiting = wait_for_active_process(args.poll_seconds, args.dry_run)
         if args.dry_run and waiting:
             return 0
+        if queue_target_finish_if_needed(args.dry_run):
+            return 0
         cycle += 1
         prompt_override = args.prompt_option or args.prompt_arg
         return_code, should_stop_after = launch_session(cycle, args.dry_run, prompt_override)
         if args.dry_run:
             return return_code
         if should_stop_after:
+            mark_target_finalization_completed()
             print(f"[{now()}] finish control event consumed; stopping supervisor loop")
             return return_code
         if return_code != 0 and args.stop_on_error:

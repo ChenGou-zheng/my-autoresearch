@@ -38,6 +38,7 @@ class TuiSnapshot:
     todo_lines: list[str]
     results: ResultTable
     pending_control_count: int
+    termination_status: str
 
 
 def read_text(path: Path, default: str = "") -> str:
@@ -132,6 +133,26 @@ def format_age(path: Path | None) -> str:
     return f"{int(age_seconds // 3600)}h ago"
 
 
+def format_termination_status(state: dict) -> str:
+    termination = CONFIG.get("termination") or {}
+    mode = str(termination.get("mode") or "manual")
+    if mode in {"manual", "off", "never"}:
+        return mode
+
+    target = termination.get("target")
+    if target is None:
+        return f"{mode}: no target"
+
+    scale = str(termination.get("scale") or "unit")
+    best = state.get("best_primary_metric", "na")
+    metric = termination.get("metric_column") or "primary_metric"
+    recorded = state.get("termination")
+    suffix = ""
+    if isinstance(recorded, dict) and recorded.get("finalization_started"):
+        suffix = " finalizing"
+    return f"{mode}: {metric} {best} / {target} ({scale}){suffix}"
+
+
 def build_snapshot(todo_limit: int = 8, results_limit: int = 8, log_limit: int = 12) -> TuiSnapshot:
     state = load_state()
     pid = active_pid(state)
@@ -150,4 +171,5 @@ def build_snapshot(todo_limit: int = 8, results_limit: int = 8, log_limit: int =
         todo_lines=parse_todo(todo_limit),
         results=parse_results(results_limit),
         pending_control_count=len(pending_events()),
+        termination_status=format_termination_status(state),
     )

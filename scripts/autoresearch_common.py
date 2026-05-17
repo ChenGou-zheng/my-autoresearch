@@ -210,6 +210,7 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict:
     agent = dict(config.get("agent") or {})
     agent["available_models"] = dict(agent.get("available_models") or MODEL_ALIASES)
     agent["available_efforts"] = list(agent.get("available_efforts") or sorted(ALLOWED_VARIANTS))
+    termination = dict(config.get("termination") or {})
     supervisor = DEFAULT_SUPERVISOR | dict(config.get("supervisor") or {})
     return {
         "workspace_dir": workspace_dir,
@@ -217,6 +218,7 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict:
         "output_dir": output_dir,
         "files": files,
         "agent": agent,
+        "termination": termination,
         "supervisor": supervisor,
     }
 

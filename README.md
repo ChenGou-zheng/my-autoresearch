@@ -175,6 +175,15 @@ Force actions work by reading pids from `run_state.json` and sending a signal.
     "branch_mode": "direction",
     "branch_cleanup": "suggest"
   },
+  "termination": {
+    "mode": "manual",
+    "results_file": "results",
+    "metric_column": "primary_metric",
+    "target": null,
+    "scale": "unit",
+    "eligible_statuses": ["keep", "continue"],
+    "finalize_with_agent": true
+  },
   "supervisor": {
     "opencode_timeout_seconds": 3600,
     "active_process_stale_seconds": 7200,
@@ -218,6 +227,13 @@ directions should get their own `autoresearch/<tag>-<direction>` branch, while
 small follow-up tweaks stay on the current direction branch. `branch_cleanup:
 "suggest"` means agents should list cleanup candidates instead of deleting
 branches automatically.
+
+`termination.mode: "target"` makes `autoresearch_supervisor.py` check
+`results.tsv` before each new session. When the best numeric value in
+`metric_column` reaches `target`, using only `eligible_statuses`, the supervisor
+queues the same non-force `finish` event used by the TUI. The next agent session
+performs final synchronization and the supervisor exits after that session. Use
+`scale: "percent"` when the target is written as `85` instead of `0.85`.
 
 `supervisor.opencode_timeout_seconds` limits each `opencode run` session that
 the supervisor starts. `supervisor.active_process_stale_seconds` limits how long

@@ -22,6 +22,15 @@
     "branch_mode": "direction",
     "branch_cleanup": "suggest"
   },
+  "termination": {
+    "mode": "manual",
+    "results_file": "results",
+    "metric_column": "primary_metric",
+    "target": null,
+    "scale": "unit",
+    "eligible_statuses": ["keep", "continue"],
+    "finalize_with_agent": true
+  },
   "supervisor": {
     "opencode_timeout_seconds": 3600,
     "active_process_stale_seconds": 7200,

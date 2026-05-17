@@ -60,6 +60,7 @@ def draw_status(win: curses.window, snapshot: TuiSnapshot) -> None:
     else:
         safe_addstr(win, 4, 2, "latest log: none")
     safe_addstr(win, 5, 2, f"pending user events: {snapshot.pending_control_count}")
+    safe_addstr(win, 6, 2, f"termination: {snapshot.termination_status}")
 
 
 def draw_todo(win: curses.window, snapshot: TuiSnapshot) -> None:
