@@ -8,11 +8,7 @@
     "default_reasoning_effort": "xhigh",
     "available_models": {
       "deepseekv4pro": "deepseek/deepseek-v4-pro",
-      "deepseek-v4-pro": "deepseek/deepseek-v4-pro",
-      "deepseek/deepseek-v4-pro": "deepseek/deepseek-v4-pro",
-      "deepseekv4flash": "deepseek/deepseek-v4-flash",
-      "deepseek-v4-flash": "deepseek/deepseek-v4-flash",
-      "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash"
+      "deepseekv4flash": "deepseek/deepseek-v4-flash"
     },
     "available_efforts": ["medium", "high", "xhigh", "max"]
   },
@@ -37,15 +33,15 @@
     "kill_grace_seconds": 15
   },
   "files": {
-    "program": "program.md",
-    "project": "project.md",
-    "state": "run_state.json",
-    "todo": "todo.md",
-    "plan": "plan.md",
-    "handoff": "handoff.md",
-    "journal": "experiment_journal.md",
-    "results": "results.tsv",
-    "next_run": "next_run.json",
+    "program": "config/program.md",
+    "project": "config/project.md",
+    "state": "state/run_state.json",
+    "todo": "state/todo.md",
+    "plan": "state/plan.md",
+    "handoff": "state/handoff.md",
+    "journal": "results/experiment_journal.md",
+    "results": "results/results.tsv",
+    "next_run": "state/next_run.json",
     "inbox": "autoresearch/inbox.jsonl"
   }
 }

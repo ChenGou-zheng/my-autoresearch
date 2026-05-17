@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 HARNESS_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_CONFIG = HARNESS_DIR / "autoresearch.config.json"
+DEFAULT_CONFIG = HARNESS_DIR / "config" / "autoresearch.config.json"
 DEFAULT_NEXT_RUN = HARNESS_DIR / "next_run.json"
 LEGACY_SETTINGS = HARNESS_DIR / "autoresearch_setting.json"
 DEFAULT_STATE = HARNESS_DIR / "run_state.json"
@@ -36,15 +36,6 @@ DEFAULT_FILES = {
     "inbox": "autoresearch/inbox.jsonl",
 }
 
-MODEL_ALIASES = {
-    "deepseekv4pro": "deepseek/deepseek-v4-pro",
-    "deepseek-v4-pro": "deepseek/deepseek-v4-pro",
-    "deepseek/deepseek-v4-pro": "deepseek/deepseek-v4-pro",
-    "deepseekv4flash": "deepseek/deepseek-v4-flash",
-    "deepseek-v4-flash": "deepseek/deepseek-v4-flash",
-    "deepseek/deepseek-v4-flash": "deepseek/deepseek-v4-flash",
-}
-
 ALLOWED_VARIANTS = {"medium", "high", "xhigh", "max"}
 DEFAULT_SUPERVISOR = {
     "opencode_timeout_seconds": 3600,
@@ -52,9 +43,10 @@ DEFAULT_SUPERVISOR = {
     "kill_grace_seconds": 15,
 }
 DEFAULT_PROMPT = (
-    "Read myautoresearch/program.md first. Then read myautoresearch/project.md, "
-    "then read the configured output files: run_state.json, handoff.md, todo.md, "
-    "plan.md, and results.tsv. Treat the configured workspace as the project "
+    "Read myautoresearch/config/program.md first. Then read myautoresearch/config/project.md, "
+    "then read myautoresearch/state/run_state.json, myautoresearch/state/handoff.md, "
+    "myautoresearch/state/todo.md, myautoresearch/state/plan.md, and "
+    "myautoresearch/results/results.tsv. Treat the configured workspace as the project "
     "workspace. Summarize current best result, active or blocked state, and "
     "next concrete action before editing or running long commands. Continue "
     "exactly one autoresearch loop iteration unless blocked."
@@ -208,7 +200,7 @@ def load_config(path: Path = DEFAULT_CONFIG) -> dict:
     output_dir = _resolve_path(config.get("output_dir", config.get("state_dir", ".")))
     files = DEFAULT_FILES | dict(config.get("files") or {})
     agent = dict(config.get("agent") or {})
-    agent["available_models"] = dict(agent.get("available_models") or MODEL_ALIASES)
+    agent["available_models"] = dict(agent.get("available_models") or {})
     agent["available_efforts"] = list(agent.get("available_efforts") or sorted(ALLOWED_VARIANTS))
     termination = dict(config.get("termination") or {})
     supervisor = DEFAULT_SUPERVISOR | dict(config.get("supervisor") or {})
@@ -259,7 +251,7 @@ def workspace_dir(config: dict | None = None) -> Path:
 def resolve_model(raw_model: str, config: dict | None = None) -> str:
     model = raw_model.strip()
     config = config or load_config()
-    aliases = dict((config.get("agent") or {}).get("available_models") or MODEL_ALIASES)
+    aliases = dict((config.get("agent") or {}).get("available_models") or {})
     return aliases.get(model, model)
 
 

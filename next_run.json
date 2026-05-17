@@ -1,9 +1,0 @@
-{
-  "next_model": "deepseekv4flash",
-  "next_reasoning_effort": "xhigh",
-  "expected_work_type": "setup",
-  "next_task": "Read the autoresearch template files, inspect the parent project, and prepare the first concrete research task.",
-  "reason": "A newly embedded autoresearch harness should first understand the host project before making changes.",
-  "prompt": "Read myautoresearch/program.md first. Then read myautoresearch/project.md, then read the configured output files: run_state.json, handoff.md, todo.md, plan.md, and results.tsv. Treat the configured workspace as the project workspace. Summarize current project goal, active or blocked state, and next concrete action before editing or running long commands. Continue exactly one autoresearch loop iteration unless blocked.",
-  "updated_at": "2026-05-14T00:00:00+08:00"
-}

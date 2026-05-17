@@ -1,13 +1,17 @@
 .venv/
 __pycache__/
 *.pyc
-*.log
 
-# Runtime state produced by the autoresearch harness.
+# Agent cycle state (recreated each session).
+state/
+
+# Intermediate files produced by the autoresearch harness.
 autoresearch/inbox.jsonl
 autoresearch/tmp/*
 autoresearch/logs/*
 autoresearch/sessions/*
+
+# Preserve placeholder README files.
 !autoresearch/tmp/README.md
 !autoresearch/logs/README.md
 !autoresearch/sessions/README.md
