@@ -233,7 +233,8 @@ branches automatically.
 `metric_column` reaches `target`, using only `eligible_statuses`, the supervisor
 queues the same non-force `finish` event used by the TUI. The next agent session
 performs final synchronization and the supervisor exits after that session. Use
-`scale: "percent"` when the target is written as `85` instead of `0.85`.
+`scale: "percent"` when both the target and result values are written as `85`
+instead of `0.85`.
 
 `supervisor.opencode_timeout_seconds` limits each `opencode run` session that
 the supervisor starts. `supervisor.active_process_stale_seconds` limits how long

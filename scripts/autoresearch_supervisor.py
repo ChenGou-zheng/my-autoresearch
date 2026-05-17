@@ -144,13 +144,17 @@ def parse_metric(raw: object) -> float | None:
         return None
 
 
+def normalize_metric(value: float, termination: dict) -> float:
+    if str(termination.get("scale") or "unit").lower() == "percent":
+        return value / 100.0
+    return value
+
+
 def normalized_target(termination: dict) -> float | None:
     target = parse_metric(termination.get("target"))
     if target is None:
         return None
-    if str(termination.get("scale") or "unit").lower() == "percent":
-        return target / 100.0
-    return target
+    return normalize_metric(target, termination)
 
 
 def termination_results_path(termination: dict) -> Path:
@@ -183,6 +187,7 @@ def best_result_metric(termination: dict) -> tuple[float | None, dict | None]:
             metric = parse_metric(row.get(metric_column))
             if metric is None:
                 continue
+            metric = normalize_metric(metric, termination)
             if best_metric is None or metric > best_metric:
                 best_metric = metric
                 best_row = row
@@ -254,13 +259,19 @@ def queue_target_finish_if_needed(dry_run: bool) -> bool:
     return False
 
 
-def mark_target_finalization_completed() -> None:
+def mark_target_finalization_completed(return_code: int) -> None:
     state = load_json(STATE_PATH, default={})
     termination = state.get("termination")
     if not isinstance(termination, dict) or not termination.get("finalization_started"):
         return
-    termination["finalization_completed"] = True
-    termination["completed_at"] = now()
+    if return_code == 0:
+        termination["finalization_completed"] = True
+        termination["completed_at"] = now()
+    else:
+        termination["finalization_completed"] = False
+        termination["finalization_failed"] = True
+        termination["failed_at"] = now()
+    termination["finalization_return_code"] = return_code
     state["termination"] = termination
     write_json(STATE_PATH, state)
 
@@ -472,7 +483,7 @@ def main() -> int:
         if args.dry_run:
             return return_code
         if should_stop_after:
-            mark_target_finalization_completed()
+            mark_target_finalization_completed(return_code)
             print(f"[{now()}] finish control event consumed; stopping supervisor loop")
             return return_code
         if return_code != 0 and args.stop_on_error:
